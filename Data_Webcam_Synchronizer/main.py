@@ -90,7 +90,6 @@ def synch(station,camera,data_product,camera_product,value,time_start,time_end,i
     value : str or float
         A qualifier to determine the type of data from which a movie is made. Options are:
             'all': Make a movie of all data points in data_product between time_start and time_end.
-            'highest': Make a movie of only the highest n data points in data_product, between time_start and time_end, where n is given by cutoff.
             float e.g. 0.5: Make a movie of n data points in data_product between time_start and time_end that are ~equal to this value, where n is given by cutoff.
     time_start : str
         The time to begin synchronizing data, in local time at the camera. In format 'yyyymmddHHMM'.
@@ -129,10 +128,6 @@ def synch(station,camera,data_product,camera_product,value,time_start,time_end,i
     if value=='all':
         # Get images for all of the observations #
         datas = data.dropna()
-    elif value=='highest':
-        # Get images for the cutoff highest observations #
-        datas = data.sort_values(by='value',ascending=False)
-        datas = datas.iloc[0:cutoff]
     elif ~isinstance(value,str):
         # Get cutoff images for observations equal to val (within a tolerance) #
         tol = 0.01
