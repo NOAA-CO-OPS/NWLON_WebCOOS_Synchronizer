@@ -20,10 +20,13 @@ conda create -n dws_env python
 conda activate dws_env
 ```
 
-Then, you can install the package using pip:
+Then, you can install the package using git and pip:
 
 ```bash
-pip install git+LINK
+git clone https://github.com/NOAA-CO-OPS/Data_Webcam_Synchronizer.git
+cd Data_Webcam_Synchronizer
+git checkout main
+pip install .
 ```
 
 
