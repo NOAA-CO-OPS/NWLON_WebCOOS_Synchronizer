@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import requests
 
-class get_API_data:
+class CoopsApiTwo:
     '''
     Class to download data from CO-OPS API. Class allows request of 
     multiple datasets over the same time period.

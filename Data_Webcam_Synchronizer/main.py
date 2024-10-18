@@ -7,16 +7,16 @@ import numpy as np
 import os
 import pandas as pd
 import pickle
+import pywebcoos # Package available on the WebCOOS GitHub #
 import random
 from sklearn.neural_network import MLPClassifier
 
-from .WebcoosApi import WebcoosApi
 from .CoopsApi import CoopsApi
-from .get_API_data import get_API_data
+from .CoopsApiTwo import CoopsApiTwo
 
 def view_cameras(token):
     '''
-    Function to view available cameras on the WebCOOS API.
+    Function to view available cameras on the WebCOOS API. Wrapper for the pywebcoos wrapper.
     
     Parameters
     _ _ _ _ _ 
@@ -28,12 +28,13 @@ def view_cameras(token):
     None, but prints a list.
       
     '''
-    print(WebcoosApi(token).cameras)
+    api = pywebcoos.API(token)
+    api.view_cameras()
 
 
 def view_products(camera,token):
     '''
-    Function to view available cameras on the WebCOOS API.
+    Function to view available cameras on the WebCOOS API. Wrapper for the pywebcoos wrapper.
     
     Parameters
     _ _ _ _ _ 
@@ -47,13 +48,13 @@ def view_products(camera,token):
     None, but prints info.
       
     '''    
-    webcoos =  WebcoosApi(token)
+    api = pywebcoos.API(token)
     webcoos.view_products(camera)
 
 
 def view_product_inventory(camera,product,token):
     '''
-    Function to view the inventory of a product from a WebCOOS camera.
+    Function to view the inventory of a product from a WebCOOS camera. Wrapper for the pywebcoos wrapper.
     
     Parameters
     _ _ _ _ _ 
@@ -69,8 +70,8 @@ def view_product_inventory(camera,product,token):
     None, but prints info.
       
     '''       
-    webcoos =  WebcoosApi(token)
-    webcoos.view_data(camera,product)
+    api =  pywebcoos.API(token)
+    api.view_data(camera,product)
 
 
 def synch(station,camera,data_product,camera_product,value,time_start,time_end,interval,cutoff,sep_model,token,save_dir):
@@ -221,8 +222,8 @@ def _get_flood_thresh(station):
     '''
     Get the NWS thresholds for the station relative to MHHW.
     '''
-    lvls = get_API_data(station,'20240101','20240102',product='floodlevels').run()['floodlevels']
-    datums = get_API_data(station,'20240101','20240102',product='datums').run()['datums']['datums'] # Datums are returned relative to the station datum #
+    lvls = CoopsApiTwo(station,'20240101','20240102',product='floodlevels').run()['floodlevels']
+    datums = CoopsApiTwo(station,'20240101','20240102',product='datums').run()['datums']['datums'] # Datums are returned relative to the station datum #
     mhhw = np.array(datums)[np.array([datums[i]['name'] for i in range(len(datums))]) == 'MHHW'][0]['value']
 
     for k in lvls.keys():
@@ -236,8 +237,8 @@ def _call_WebcoosApi(camera,product,time_start,time_end,token,save_dir):
     '''
     Call the WebCOOS API to download images.
     '''
-    webcoos =  WebcoosApi(token)
-    filenames = webcoos.download(camera_name=camera,
+    api =  pywebcoos.API(token)
+    filenames = api.download(camera_name=camera,
                              product_name=product,
                              start=time_start,
                              stop=time_end,
