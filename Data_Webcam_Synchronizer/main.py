@@ -49,7 +49,7 @@ def view_products(camera,token):
       
     '''    
     api = pywebcoos.API(token)
-    webcoos.view_products(camera)
+    api.view_products(camera)
 
 
 def view_product_inventory(camera,product,token):
@@ -71,7 +71,7 @@ def view_product_inventory(camera,product,token):
       
     '''       
     api =  pywebcoos.API(token)
-    api.view_data(camera,product)
+    api.view_inventory(camera,product)
 
 
 def synch(station,camera,data_product,camera_product,value,time_start,time_end,interval,cutoff,sep_model,token,save_dir):
