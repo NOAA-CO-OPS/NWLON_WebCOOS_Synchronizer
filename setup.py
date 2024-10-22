@@ -6,5 +6,5 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=['csv','datetime','matplotlib','moviepy','numpy','pandas','scikit-learn','pytz',
-                     'pywebcoos @ GitHubLink.git']
+                     'pywebcoos @ https://github.com/WebCOOS/py-webcoos-client.git']
 )
