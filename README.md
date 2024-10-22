@@ -23,7 +23,7 @@ For development:
 
 ```bash
 git clone https://github.com/NOAA-CO-OPS/Data_Webcam_Synchronizer.git
-cd Data_Webcam_synchronizer
+cd Data_Webcam_Synchronizer
 conda env create -f environment.yml
 conda activate Data_Webcam_Synchronizer
 ```
