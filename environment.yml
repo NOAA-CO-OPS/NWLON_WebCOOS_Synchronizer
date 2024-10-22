@@ -1,0 +1,16 @@
+name: Data_Webcam_Synchronizer
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.12,<3.13
+  - csv
+  - datetime
+  - matplotlib
+  - moviepy
+  - numpy
+  - pandas
+  - scikit-learn
+  - pytz
+  - pip:
+      - git+https://github.com/WebCOOS/py-webcoos-client.git

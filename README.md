@@ -13,20 +13,19 @@ This is a package to create time-synchronized visualizations of [NOAA CO-OPS wat
 
 ## Installation
 
-To install the package, it is recommended to first create and switch into a new anaconda environment:
+For general use:
 
 ```bash
-conda create -n dws_env python
-conda activate dws_env
+pip install git+https://github.com/NOAA-CO-OPS/Data_Webcam_Synchronizer.git
 ```
 
-Then, you can install the package using git and pip:
+For development:
 
 ```bash
 git clone https://github.com/NOAA-CO-OPS/Data_Webcam_Synchronizer.git
-cd Data_Webcam_Synchronizer
-git checkout main
-pip install .
+cd Data_Webcam_synchronizer
+conda env create -f environment.yml
+conda activate Data_Webcam_Synchronizer
 ```
 
 
