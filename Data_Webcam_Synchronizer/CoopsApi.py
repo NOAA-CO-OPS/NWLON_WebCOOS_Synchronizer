@@ -49,14 +49,13 @@ import time as time
 import pandas as pd
 import numpy as np
 
+
 # Class of data retrieval functions for CO-OPS APIs
 class CoopsApi:
 
     def __init__(self):
         # URL information
         self.server = 'https://tidesandcurrents.noaa.gov/api/datagetter'
-  
-  
   
     # Get observations or product data for a given station, product type and date/time period.
     #

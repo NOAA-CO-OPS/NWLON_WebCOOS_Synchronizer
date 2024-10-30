@@ -1,0 +1,5 @@
+[flake8]
+max-line-length = 120
+per-file-ignores =
+    *.py: E265 E275 E501 E221 E203 E201 E124 E202 E241 E251 W293 W291 F811 W504
+exclude =.git,__pycahce__,.ipynb_checkpoints,pywebcoos.egg-info,test/__pycache__,test/.ipynb_checkpoints
