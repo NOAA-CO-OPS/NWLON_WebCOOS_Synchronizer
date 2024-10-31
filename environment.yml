@@ -2,7 +2,7 @@ name: nwlon_webcoos_synchronizer
 channels:
   - defaults
 dependencies:
-  - python>=3.12
+  - python=3.12
   - matplotlib
   - moviepy
   - numpy
