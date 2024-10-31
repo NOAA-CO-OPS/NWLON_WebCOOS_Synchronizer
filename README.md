@@ -16,16 +16,16 @@ This is a package to create time-synchronized visualizations of [NOAA CO-OPS wat
 For general use:
 
 ```bash
-pip install git+https://github.com/NOAA-CO-OPS/Data_Webcam_Synchronizer.git
+pip install git+https://github.com/NOAA-CO-OPS/NWLON_WebCOOS_Synchronizer.git
 ```
 
 For development:
 
 ```bash
-git clone https://github.com/NOAA-CO-OPS/Data_Webcam_Synchronizer.git
-cd Data_Webcam_Synchronizer
+git clone https://github.com/NOAA-CO-OPS/NWLON_WebCOOS_Synchronizer.git
+cd nwlon_webcoos_synchronizer
 conda env create -f environment.yml
-conda activate Data_Webcam_Synchronizer
+conda activate nwlon_webcoos_synchronizer
 ```
 
 

@@ -1,10 +1,8 @@
-name: Data_Webcam_Synchronizer
+name: nwlon_webcoos_synchronizer
 channels:
-  - conda-forge
   - defaults
 dependencies:
-  - python>=3.12,<3.13
-  - datetime
+  - python>=3.12
   - matplotlib
   - moviepy
   - numpy
