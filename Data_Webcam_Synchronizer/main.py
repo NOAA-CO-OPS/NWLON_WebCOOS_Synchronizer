@@ -7,7 +7,7 @@ import numpy as np
 import os
 import pandas as pd
 import pickle
-import pywebcoos # Package available on the WebCOOS GitHub#
+import pywebcoos  # Package available on the WebCOOS GitHub
 import random
 from sklearn.neural_network import MLPClassifier
 
@@ -136,7 +136,7 @@ def synch(station, camera, data_product, camera_product, value, time_start, time
         datas = data
         datas = datas[datas['value'] >= value-tol]
         datas = datas[datas['value'] <= value+tol]
-        datas = datas.sample(frac=1) # Shuffle the rows so various times are returned #
+        datas = datas.sample(frac=1)  # Shuffle the rows so various times are returned #
         datas = datas.iloc[0:cutoff]
         
     # Download image for each data point #
@@ -225,7 +225,7 @@ def _get_flood_thresh(station):
     Get the NWS thresholds for the station relative to MHHW.
     '''
     lvls = CoopsApiTwo(station, '20240101', '20240102', product='floodlevels').run()['floodlevels']
-    datums = CoopsApiTwo(station, '20240101', '20240102', product='datums').run()['datums']['datums'] # Datums are returned relative to the station datum #
+    datums = CoopsApiTwo(station, '20240101', '20240102', product='datums').run()['datums']['datums']  # Datums are returned relative to the station datum #
     mhhw = np.array(datums)[np.array([datums[i]['name'] for i in range(len(datums))]) == 'MHHW'][0]['value']
 
     for k in lvls.keys():
@@ -296,9 +296,9 @@ def _save_frames(datas, camera, station, view_num):
     '''
     datas['frame'] = 0
     
-    if datas['date_time'].diff().dropna().nunique() == 1: # If datas is evenly spaced in time, then val='all' and we want a timeseries.
+    if datas['date_time'].diff().dropna().nunique() == 1:  # If datas is evenly spaced in time, then val='all' and we want a timeseries.
         ts = True
-    else: # If datas is not evenly spaced in time, then user wants images at a certain value, and we want to show that value #
+    else:  # If datas is not evenly spaced in time, then user wants images at a certain value, and we want to show that value #
         ts = False 
         
     lens = np.array([len(datas['image'].iloc[i]) for i in range(len(datas))])
@@ -334,19 +334,19 @@ def _save_frames(datas, camera, station, view_num):
 
         # Plot the NWS flood threshold levels on the data axis #
         mhhw = 0
-        if ax_data.get_ylim()[0] < mhhw < ax_data.get_ylim()[1]: # Plot the mhhw level if the data covers it #
+        if ax_data.get_ylim()[0] < mhhw < ax_data.get_ylim()[1]:  # Plot the mhhw level if the data covers it #
             ax_data.plot(ax_data.get_xlim(), [mhhw, mhhw], 'k--')
             ax_data.text(ax_data.get_xlim()[0], mhhw, 'MHHW', color='k', fontsize=12)
         minor = _get_flood_thresh(station)['nws_minor']
-        if ax_data.get_ylim()[0] < minor < ax_data.get_ylim()[1]: # Plot the minor flood level if the data covers it #
+        if ax_data.get_ylim()[0] < minor < ax_data.get_ylim()[1]:  # Plot the minor flood level if the data covers it #
             ax_data.plot(ax_data.get_xlim(), [minor, minor], 'y--')
             ax_data.text(ax_data.get_xlim()[0], minor, 'Minor flooding', color='y', fontsize=12)
         moderate = _get_flood_thresh(station)['nws_moderate']
-        if ax_data.get_ylim()[0] < moderate < ax_data.get_ylim()[1]: # Plot the moderate flood level if the data covers it #
+        if ax_data.get_ylim()[0] < moderate < ax_data.get_ylim()[1]:  # Plot the moderate flood level if the data covers it #
             ax_data.plot(ax_data.get_xlim(), [moderate, moderate], 'r--')
             ax_data.text(ax_data.get_xlim()[0], moderate, 'Moderate flooding', color='r', fontsize=12)        
         major = _get_flood_thresh(station)['nws_major']
-        if ax_data.get_ylim()[0] < major < ax_data.get_ylim()[1]: # Plot the major flood level if the data covers it #
+        if ax_data.get_ylim()[0] < major < ax_data.get_ylim()[1]:  # Plot the major flood level if the data covers it #
             ax_data.plot(ax_data.get_xlim(), [major, major], 'm--')
             ax_data.text(ax_data.get_xlim()[0], major, 'Major flooding', color='m', fontsize=12)
 
@@ -368,9 +368,9 @@ def _produce_movie(datas_mov):
     Create a movie from saved frames.
     '''
     # Determine desired movie fps #
-    if datas_mov['date_time'].diff().dropna().nunique() == 1: # If datas is evenly spaced in time, then val='all' and we want a timeseries, fps should be fast
+    if datas_mov['date_time'].diff().dropna().nunique() == 1:  # If datas is evenly spaced in time, then val='all' and we want a timeseries, fps should be fast
         fps = 4
-    else: # If datas is not evenly spaced in time, then user wants images at a certain value, an the movie should be slower #
+    else:  # If datas is not evenly spaced in time, then user wants images at a certain value, an the movie should be slower #
         fps = 2
         
     # If a sep_model was used, frames were only saved for images with the desired view_num.
@@ -394,7 +394,7 @@ def _produce_movie(datas_mov):
         out_file_name = os.path.basename(datas_mov['image'].iloc[good[0]]).split('.')[0]+'--'+os.path.basename(datas_mov['image'].iloc[good[-1]]).split('.')[0]+'--'+'Video.mp4'
         out_file = os.path.join(os.path.dirname(datas_mov['image'].iloc[good[0]]), out_file_name)
     else:
-        out_file = 'Video.mp4' ### TODO ###                                                                               
+        out_file = 'Video.mp4'                                                                               
     final_clip.write_videofile(out_file, codec='libx264')
     return out_file
 
@@ -478,11 +478,11 @@ class ViewSeparator():
             time_start = _dt2datestr(times[i])
             time_end = _dt2datestr(times[i]+datetime.timedelta(minutes=1))
             _call_WebcoosApi(camera=self.camera,
-                            product='one-minute-stills',
-                            time_start=time_start,
-                            time_end=time_end,
-                            token=self.token,
-                            save_dir=direc)
+                             product='one-minute-stills',
+                             time_start=time_start,
+                             time_end=time_end,
+                             token=self.token,
+                             save_dir=direc)
     
     def label(self, direc):
         ims = os.listdir(direc) 
@@ -493,7 +493,7 @@ class ViewSeparator():
             except:
                 pass
             else:
-                if not os.path.exists(imff.split('.')[0]+'_label'+'.pkl'): # Skip if the image already has a label file #
+                if not os.path.exists(imff.split('.')[0]+'_label'+'.pkl'):  # Skip if the image already has a label file #
                     # Show the image
                     plt.imshow(im)   
                     plt.axis('off')  # Hide axes
@@ -570,10 +570,10 @@ class ViewSeparator():
         X = np.vstack(dset['image vec'].tolist()) / 255.0
         y = dset['label']
         mlp_model = MLPClassifier(hidden_layer_sizes=[300, 100], 
-                          activation='relu', 
-                          early_stopping=True,
-                          random_state=13, 
-                          verbose= True)
+                                  activation='relu', 
+                                  early_stopping=True,
+                                  random_state=13, 
+                                  verbose= True)
 
         mlp_model.fit(X, y)
         return mlp_model
