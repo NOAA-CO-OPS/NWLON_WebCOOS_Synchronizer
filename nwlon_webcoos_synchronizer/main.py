@@ -15,9 +15,9 @@ from .CoopsApi import CoopsApi
 from .CoopsApiTwo import CoopsApiTwo
 
 
-def view_cameras(token):
+def get_cameras(token):
     '''
-    Function to view available cameras on the WebCOOS API. Wrapper for the pywebcoos wrapper.
+    Function to get available cameras on the WebCOOS API. Wrapper for the pywebcoos wrapper.
     
     Parameters
     _ _ _ _ _ 
@@ -30,12 +30,12 @@ def view_cameras(token):
       
     '''
     api = pywebcoos.API(token)
-    print(api.get_cameras())
+    return api.get_cameras()
 
 
-def view_products(camera, token):
+def get_products(camera, token):
     '''
-    Function to view available cameras on the WebCOOS API. Wrapper for the pywebcoos wrapper.
+    Function to get available cameras on the WebCOOS API. Wrapper for the pywebcoos wrapper.
     
     Parameters
     _ _ _ _ _ 
@@ -50,12 +50,12 @@ def view_products(camera, token):
       
     '''    
     api = pywebcoos.API(token)
-    print(api.get_products(camera))
+    return api.get_products(camera)
 
 
-def view_product_inventory(camera, product, token):
+def get_inventory(camera, product, token):
     '''
-    Function to view the inventory of a product from a WebCOOS camera. Wrapper for the pywebcoos wrapper.
+    Function to get the inventory of a product from a WebCOOS camera. Wrapper for the pywebcoos wrapper.
     
     Parameters
     _ _ _ _ _ 
@@ -72,7 +72,7 @@ def view_product_inventory(camera, product, token):
       
     '''      
     api = pywebcoos.API(token)
-    print(api.get_inventory(camera, product))
+    return api.get_inventory(camera, product)
 
 
 def synch(station, camera, data_product, camera_product, value, time_start, time_end, interval, cutoff, sep_model, token, save_dir):
