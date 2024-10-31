@@ -1,3 +1,5 @@
+## Note: This file is copied from the GitHub repo: https://github.com/NOAA-CO-OPS/Dev_Tools_Python
+## Copy occured in Sept 2024
 ## 
 # FILENAME: CoopsApi.py
 # CREATED:  2020/05/18
