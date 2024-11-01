@@ -2,6 +2,7 @@ import os
 import pytest
 import nwlon_webcoos_synchronizer as synch
 
+
 # Input checking / error handling tests #
 def test_invalid_station_raises_exception():
     key = _get_key()
@@ -38,6 +39,7 @@ def test_date_out_of_range_raises_exception():
                     time_start='190001011000', time_end='190001011010', interval=6, cutoff=None,
                     sep_model=None, token=key, save_dir='.')  
 
+        
 def test_invalid_value_argument_raises_exception():
     key = _get_key()
     with pytest.raises(ValueError, match="value argument must be either 'all' or a float/integer value."):
