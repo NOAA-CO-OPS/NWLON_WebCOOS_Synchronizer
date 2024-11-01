@@ -114,6 +114,10 @@ def synch(station, camera, data_product, camera_product, value, time_start, time
     datas : Pandas DataFrame
         The synchronized data and webcamera frames. Each data point in datas contains a time, data value, saved image path, and (if applicable) predicted view number. 
     '''           
+    _check_date_format(time_start, 'start', token)
+    _check_date_format(time_end, 'end', token)
+    _check_date_range(camera, camera_product, time_start, time_end, token)
+    
     # First get all the data of the requested product for the requested time period #
     data = _call_CoopsApi(station, data_product, time_start, time_end)
     data = data[data['date_time'] >= _datestr2dt(time_start)]
@@ -130,7 +134,9 @@ def synch(station, camera, data_product, camera_product, value, time_start, time
     if value == 'all':
         # Get images for all of the observations #
         datas = data.dropna()
-    elif ~isinstance(value, str):
+    elif isinstance(value, str) and value != 'all':
+        raise ValueError("value argument must be either 'all' or a float/integer value.")
+    elif isinstance(value, int) or isinstance(value, float):
         # Get cutoff images for observations equal to val (within a tolerance) #
         tol = 0.01
         datas = data
@@ -138,6 +144,8 @@ def synch(station, camera, data_product, camera_product, value, time_start, time
         datas = datas[datas['value'] <= value+tol]
         datas = datas.sample(frac=1)  # Shuffle the rows so various times are returned #
         datas = datas.iloc[0:cutoff]
+    else:
+        raise ValueError("value argument must be either 'all' or a float/integer value.")
         
     # Download image for each data point #
     datas['image'] = 0
@@ -290,6 +298,16 @@ def _dt2datestr(dt):
     return str(dt.year)+smo+str(mo)+sday+str(day)+shr+str(hr)+smn+str(mn)
 
 
+def _check_date_format(date, date_name, token):
+    api = pywebcoos.API(token)
+    api._check_date_format(date, date_name)
+
+    
+def _check_date_range(camera_name, product_name, start, stop, token):
+    api = pywebcoos.API(token)
+    api._check_date_range(camera_name, product_name, start, stop)
+
+    
 def _save_frames(datas, camera, station, view_num):
     '''
     Save each frame of a movie.

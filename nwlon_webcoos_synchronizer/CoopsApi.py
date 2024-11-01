@@ -50,6 +50,7 @@ import csv as csvy
 import time as time
 import pandas as pd
 import numpy as np
+import json
 
 
 # Class of data retrieval functions for CO-OPS APIs
@@ -180,11 +181,15 @@ class CoopsApi:
 
             # Read the url response
             urlResponse = requests.get(urlRequest)
-            content = urlResponse.json()
+            try:
+                content = urlResponse.json()
+            except json.JSONDecodeError:
+                raise ValueError('Requested NWLON data product is not available.')
             
             # check for errors
             if 'error' in content:
                 print(content['error'],['message'])
+                raise ValueError('Requested station ID is not a valid NWLON statation.')
             else:
                 # no errors found
                 
