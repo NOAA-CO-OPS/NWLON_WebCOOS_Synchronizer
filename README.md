@@ -1,4 +1,4 @@
-# Data_Webcam_Synchronizer
+# NWLON_WebCOOS_Synchronizer
 
 This is a package to create time-synchronized visualizations of [NOAA CO-OPS water level data](https://tidesandcurrents.noaa.gov/inundationdb/) and [WebCOOS webcamera imagery](https://webcoos.org/), including from pan-tilt-zoom (PTZ) cameras.
 
