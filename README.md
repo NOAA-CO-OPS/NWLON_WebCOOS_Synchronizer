@@ -24,7 +24,7 @@ For development:
 
 ```bash
 git clone https://github.com/NOAA-CO-OPS/NWLON_WebCOOS_Synchronizer.git
-cd nwlon_webcoos_synchronizer
+cd NWLON_WebCOOS_Synchronizer
 conda env create -f environment.yml
 conda activate nwlon_webcoos_synchronizer
 ```
