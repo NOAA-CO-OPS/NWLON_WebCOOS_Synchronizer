@@ -3,12 +3,11 @@ channels:
   - defaults
 dependencies:
   - python=3.12
-  - pip
+  - matplotlib
+  - numpy
+  - pandas
+  - scikit-learn
+  - pytz
   - pip:
-    - matplotlib
     - moviepy
-    - numpy
-    - pandas
-    - scikit-learn
-    - pytz
     - git+https://github.com/WebCOOS/py-webcoos-client.git#egg=pywebcoos
