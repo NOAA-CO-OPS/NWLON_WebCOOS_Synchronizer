@@ -7,5 +7,5 @@ setup(
     include_package_data=True,
     install_requires=['matplotlib', 'moviepy', 'numpy', 'pandas', 'scikit-learn', 'pytz',
                       'git+https://github.com/WebCOOS/py-webcoos-client.git#egg=pywebcoos',
-                     ],
+                     ]
 )
