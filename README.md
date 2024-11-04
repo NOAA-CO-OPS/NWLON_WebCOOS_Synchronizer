@@ -5,6 +5,7 @@ This is a package to create time-synchronized visualizations of [NOAA CO-OPS wat
 
 ## Table of Contents
 - [Installation](#installation)
+- [Test](#test)
 - [Usage](#usage)
 - [Disclaimer](#disclaimer)
 - [License](#license)
@@ -26,6 +27,29 @@ git clone https://github.com/NOAA-CO-OPS/NWLON_WebCOOS_Synchronizer.git
 cd nwlon_webcoos_synchronizer
 conda env create -f environment.yml
 conda activate nwlon_webcoos_synchronizer
+```
+
+
+## Test
+
+Unit and integration tests are included. 
+
+To run the tests, follow the "For development" installation instructions. Then, set your WebCOOS API key as an environmental variable:
+
+Linux:
+```bash
+export API_KEY='your_key'
+```
+
+Windows:
+```bash
+setx API_KEY 'your_key'
+```
+
+Then you can run the tests with:
+
+```bash
+pytest -v
 ```
 
 
