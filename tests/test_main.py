@@ -1,6 +1,11 @@
 import os
 import pytest
+import warnings
+
 import nwlon_webcoos_synchronizer as synch
+
+
+warnings.filterwarnings('ignore')
 
 
 # Input checking / error handling tests #
