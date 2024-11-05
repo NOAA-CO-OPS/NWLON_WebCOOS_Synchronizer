@@ -70,7 +70,82 @@ def test_get_inventory():
     inv = synch.get_inventory('Charleston Harbor, SC', 'video-archive', key)
     assert len(inv) > 0 , 'Getting product inventory failed' 
 
-    
+
+def test_synch_value_equals_all():
+    key = _get_key()
+    synchro = synch.synch(station=8665530,           
+                          camera='Charleston Harbor, SC',  
+                          data_product='water_level', 
+                          camera_product='one-minute-stills',     
+                          value='all',             
+                          time_start='202401011000',   
+                          time_end='202401011005',         
+                          interval=1,  
+                          cutoff=None,               
+                          sep_model=None,        
+                          token=key,             
+                          save_dir='.')
+    os.remove('nwlon_charleston-2024-01-01-150053Z.jpg')
+    os.remove('nwlon_charleston-2024-01-01-150152Z.jpg')
+    os.remove('nwlon_charleston-2024-01-01-150253Z.jpg')
+    os.remove('nwlon_charleston-2024-01-01-150352Z.jpg')
+    os.remove('nwlon_charleston-2024-01-01-150453Z.jpg')
+    os.remove('nwlon_charleston-2024-01-01-150553Z.jpg')
+    assert len(synchro['value'].dropna()) == len(synchro['image'].dropna()) , "Data synchronization failed - missing data or image"
+
+
+def test_synch_value_equals_float():
+    key = _get_key()
+    synchro = synch.synch(station=8665530,           
+                          camera='Charleston Harbor, SC',  
+                          data_product='water_level', 
+                          camera_product='one-minute-stills',     
+                          value=-1.47,             
+                          time_start='202401010500',   
+                          time_end='202401010530',         
+                          interval=6,  
+                          cutoff=10,               
+                          sep_model=None,        
+                          token=key,             
+                          save_dir='.')
+    os.remove('nwlon_charleston-2024-01-01-100643Z.jpg')
+    os.remove('nwlon_charleston-2024-01-01-101242Z.jpg')
+    os.remove('nwlon_charleston-2024-01-01-102442Z.jpg')
+    os.remove('nwlon_charleston-2024-01-01-101843Z.jpg')
+    assert len(synchro['value'].dropna()) == len(synchro['image'].dropna()) , "Data synchronization failed - missing data or image"
+
+
+def test_make_movie():
+    key = _get_key()
+    synchro = synch.synch(station=8665530,           
+                          camera='Charleston Harbor, SC',  
+                          data_product='water_level', 
+                          camera_product='one-minute-stills',     
+                          value='all',             
+                          time_start='202401011000',   
+                          time_end='202401011005',         
+                          interval=1,  
+                          cutoff=None,               
+                          sep_model=None,        
+                          token=key,             
+                          save_dir='.')
+    synch.make_movie(synchro, camera='Charleston Harbor, SC', station=8665530)
+    os.remove('nwlon_charleston-2024-01-01-150053Z.jpg')
+    os.remove('nwlon_charleston-2024-01-01-150152Z.jpg')
+    os.remove('nwlon_charleston-2024-01-01-150253Z.jpg')
+    os.remove('nwlon_charleston-2024-01-01-150352Z.jpg')
+    os.remove('nwlon_charleston-2024-01-01-150453Z.jpg')
+    os.remove('nwlon_charleston-2024-01-01-150553Z.jpg')
+    os.remove('nwlon_charleston-2024-01-01-150053Z.jpg_frame.png')
+    os.remove('nwlon_charleston-2024-01-01-150152Z.jpg_frame.png')
+    os.remove('nwlon_charleston-2024-01-01-150253Z.jpg_frame.png')
+    os.remove('nwlon_charleston-2024-01-01-150352Z.jpg_frame.png')
+    os.remove('nwlon_charleston-2024-01-01-150453Z.jpg_frame.png')
+    os.remove('nwlon_charleston-2024-01-01-150553Z.jpg_frame.png')  
+    assert os.path.exists('nwlon_charleston-2024-01-01-150053Z--nwlon_charleston-2024-01-01-150553Z--Video.mp4')
+    os.remove('nwlon_charleston-2024-01-01-150053Z--nwlon_charleston-2024-01-01-150553Z--Video.mp4')
+
+
 def _get_key():
     key = os.getenv('API_KEY')
     if key[0] == "'":

@@ -10,9 +10,13 @@ import pickle
 import pywebcoos  # Package available on the WebCOOS GitHub
 import random
 from sklearn.neural_network import MLPClassifier
+import warnings
 
 from .CoopsApi import CoopsApi
 from .CoopsApiTwo import CoopsApiTwo
+
+
+warnings.filterwarnings('ignore')
 
 
 def get_cameras(token):

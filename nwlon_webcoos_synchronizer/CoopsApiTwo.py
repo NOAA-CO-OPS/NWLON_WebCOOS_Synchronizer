@@ -150,7 +150,7 @@ class CoopsApiTwo:
                        datum_bias='MHHW', time_zone='gmt'): 
         
         # CO-OPS API server #
-        server = 'https: //api.tidesandcurrents.noaa.gov/api/prod/datagetter?'
+        server = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?'
         
         if product == 'predictions': 
             url = (server + 'begin_date=' + begin_date + '&end_date=' + end_date + '&station=' + str(station) +
@@ -167,7 +167,7 @@ class CoopsApiTwo:
     def build_url_mdapi(station, begin_date=None, end_date=None, product='details', units='metric'): 
         
         # CO-OPS metadata API server #
-        server = 'https: //api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/'
+        server = 'https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/'
         
         url = (server + str(station) + '/'+product+'.json?units='+units)
     
@@ -177,7 +177,7 @@ class CoopsApiTwo:
     def build_url_dpapi(station, begin_date=None, end_date=None, product='sealvltrends'): 
         
         # CO-OPS metadata API server #
-        server = 'https: //api.tidesandcurrents.noaa.gov/dpapi/prod/webapi/product/'
+        server = 'https://api.tidesandcurrents.noaa.gov/dpapi/prod/webapi/product/'
         
         url = (server + product + ".json?station=" + str(station) + "&affil=us")
     
