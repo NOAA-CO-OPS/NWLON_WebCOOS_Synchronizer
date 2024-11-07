@@ -9,7 +9,6 @@ This is a package to create time-synchronized visualizations of [NOAA CO-OPS wat
 - [Usage](#usage)
 - [Disclaimer](#disclaimer)
 - [License](#license)
-- [Contact](#contact)
 
 
 ## Installation
@@ -67,25 +66,3 @@ This repository is a scientific product and is not official communication of the
 ## License
 
 Software code created by U.S. Government employees is not subject to copyright in the United States (17 U.S.C. �105). The United States/Department of Commerce reserve all rights to seek and obtain copyright protection in countries other than the United States for Software authored in its entirety by the Department of Commerce. To this end, the Department of Commerce hereby grants to Recipient a royalty-free, nonexclusive license to use, copy, and create derivative works of the Software outside of the United States.
-
-
-## Contact
-
-Package written by:
-
-Matthew P. Conlin\
-Ocean Associates, Inc. in support of NOAA CO-OPS\
-matthew.conlin@noaa.gov
-
-
-For additional information, contact:
-
-Greg Dusek\
-NOAA Center for Operational Oceanographic Products and Services\
-gregory.dusek@noaa.gov
-
-
-
-
-
-
