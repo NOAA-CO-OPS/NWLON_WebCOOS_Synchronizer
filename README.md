@@ -5,6 +5,7 @@ This is a package to create time-synchronized visualizations of [NOAA CO-OPS wat
 
 ## Table of Contents
 - [Installation](#installation)
+- [WebCOOS API Key](#key)
 - [Test](#test)
 - [Usage](#usage)
 - [Disclaimer](#disclaimer)
@@ -29,11 +30,17 @@ conda activate nwlon_webcoos_synchronizer
 ```
 
 
+## WebCOOS API Key
+
+To use the tool, you need a WebCOOS API Key. You can register for one [here](https://webcoos.org/docs/doc/access/)
+
+
+
 ## Test
 
 Unit and integration tests are included. 
 
-To run the tests, follow the "For development" installation instructions. Then, set your WebCOOS API key as an environmental variable:
+To run the tests, follow the "For development" installation instructions. Then, set your WebCOOS API key as an environment variable:
 
 Linux:
 ```bash
