@@ -40,7 +40,7 @@ To use the tool, you need a WebCOOS API Key. You can register for one [here](htt
 
 Unit and integration tests are included. 
 
-To run the tests, follow the "For development" installation instructions. Then, set your WebCOOS API key as an environment variable (replace 'your_key' with your actual WebCOOS API token, in single quotes):
+To run the tests, follow the "For development" installation instructions. Then, set your WebCOOS API key as an environment variable (replace 'your_key' with your actual WebCOOS API key, in single quotes):
 
 Linux:
 ```bash
