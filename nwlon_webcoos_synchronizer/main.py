@@ -122,34 +122,7 @@ def synch(station, camera, data_product, camera_product, value, time_start, time
     _check_date_format(time_end, 'end', token)
     _check_date_range(camera, camera_product, time_start, time_end, token)
     
-    # First get all the data of the requested product for the requested time period #
-    data = _call_CoopsApi(station, data_product, time_start, time_end)
-    data = data[data['date_time'] >= _datestr2dt(time_start)]
-    data = data[data['date_time'] <= _datestr2dt(time_end)]
-    
-    # Interpolate to the desired data interval #
-    data_dates = pd.date_range(_datestr2dt(time_start), _datestr2dt(time_end), freq=str(interval)+'min')      
-    datai_v = data['value']
-    datai_v = np.interp(data_dates, data['date_time'], data['value'])
-    datai = pd.DataFrame({'date_time': data_dates, 'value': datai_v})
-    data = datai
-    
-    # Determine the data points to get images for based on the value and cutoff arguements #
-    if value == 'all':
-        # Get images for all of the observations #
-        datas = data.dropna()
-    elif isinstance(value, str) and value != 'all':
-        raise ValueError("value argument must be either 'all' or a float/integer value.")
-    elif isinstance(value, int) or isinstance(value, float):
-        # Get cutoff images for observations equal to val (within a tolerance) #
-        tol = 0.01
-        datas = data
-        datas = datas[datas['value'] >= value-tol]
-        datas = datas[datas['value'] <= value+tol]
-        datas = datas.sample(frac=1)  # Shuffle the rows so various times are returned #
-        datas = datas.iloc[0:cutoff]
-    else:
-        raise ValueError("value argument must be either 'all' or a float/integer value.")
+    datas = _synch_init(station, data_product, value, time_start, time_end, interval, cutoff)
         
     # Download image for each data point #
     datas['image'] = 0
@@ -190,6 +163,47 @@ def synch(station, camera, data_product, camera_product, value, time_start, time
     return datas
 
 
+def synch_local_imagery(station, camera, data_product, local_dir, value, time_start, time_end, interval, cutoff, save_dir):
+    '''
+    Function to synchronize locally-stored camera imagery frames with CO-OPS data.
+    Function call is the same as synch() except camera_product is replaced with local_dir and sep_model and token are removed as an arguments.
+    
+    Parameters
+    _ _ _ _ _ 
+    station : int
+        The NWLON station ID from which to use data.
+    camera : str
+        The name of the camera from which to use imagery. Can be anything in this case.
+    data_product : str
+        The CO-OPS data product to use from station (e.g. water_level).
+    local_dir : str
+        The local directory containing the time-stamped camera imager. 
+    value : str or float
+        A qualifier to determine the type of data from which a movie is made. Options are:
+            'all': Make a movie of all data points in data_product between time_start and time_end.
+            float e.g. 0.5: Make a movie of n data points in data_product between time_start and time_end that are ~equal to this value, where n is given by cutoff.
+    time_start : str
+        The time to begin synchronizing data, in local time at the camera. In format 'yyyymmddHHMM'.
+    time_end : str
+        The time to stop synchronizing data, in local time at the camera. In format 'yyyymmddHHMM'.
+    interval : int
+        The time interval for data points and camera imagery. If an interval is entered that is less than or greater than the downloaded station data interval, the data is interpolated to the desired interval.
+    cutoff : int or None
+        Crop available data to this many data points / frames.
+        For example, if value='highest' and value=10, the 10 hishest data values between time_start and time_end will be synchronized.
+    save_dir : str
+        The directory to which to save frames and the final movie.
+        
+    Returns
+    _ _ _ _ _ 
+    datas : Pandas DataFrame
+        The synchronized data and camera frames. Each data point in datas contains a time, data value, saved image path, and (if applicable) predicted view number. 
+    '''      
+    
+    datas = _synch_init(station, data_product, value, time_start, time_end, interval, cutoff)
+    return datas
+    
+    
 def make_movie(datas, camera, station, view_num=None):
     '''
     Function to make a movie of synchronized data and webcamera imagery.
@@ -219,6 +233,38 @@ def make_movie(datas, camera, station, view_num=None):
     print('Producing the movie...')
     video_file = _produce_movie(datas_mov)
     return video_file
+
+
+def _synch_init(station, data_product, value, time_start, time_end, interval, cutoff):
+    # First get all the data of the requested product for the requested time period #
+    data = _call_CoopsApi(station, data_product, time_start, time_end)
+    data = data[data['date_time'] >= _datestr2dt(time_start)]
+    data = data[data['date_time'] <= _datestr2dt(time_end)]
+    
+    # Interpolate to the desired data interval #
+    data_dates = pd.date_range(_datestr2dt(time_start), _datestr2dt(time_end), freq=str(interval)+'min')      
+    datai_v = data['value']
+    datai_v = np.interp(data_dates, data['date_time'], data['value'])
+    datai = pd.DataFrame({'date_time': data_dates, 'value': datai_v})
+    data = datai
+    
+    # Determine the data points to get images for based on the value and cutoff arguements #
+    if value == 'all':
+        # Get images for all of the observations #
+        datas = data.dropna()
+    elif isinstance(value, str) and value != 'all':
+        raise ValueError("value argument must be either 'all' or a float/integer value.")
+    elif isinstance(value, int) or isinstance(value, float):
+        # Get cutoff images for observations equal to val (within a tolerance) #
+        tol = 0.01
+        datas = data
+        datas = datas[datas['value'] >= value-tol]
+        datas = datas[datas['value'] <= value+tol]
+        datas = datas.sample(frac=1)  # Shuffle the rows so various times are returned #
+        datas = datas.iloc[0:cutoff]
+    else:
+        raise ValueError("value argument must be either 'all' or a float/integer value.")
+    return datas    
 
     
 def _call_CoopsApi(station, data_product, time_start, time_end):
