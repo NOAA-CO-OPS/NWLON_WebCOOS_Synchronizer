@@ -163,10 +163,10 @@ def synch(station, camera, data_product, camera_product, value, time_start, time
     return datas
 
 
-def synch_local_imagery(station, camera, data_product, local_dir, value, time_start, time_end, interval, cutoff, save_dir):
+def synch_local(station, camera, data_product, local_dir, value, time_start, time_end, interval, cutoff):
     '''
     Function to synchronize locally-stored camera imagery frames with CO-OPS data.
-    Function call is the same as synch() except camera_product is replaced with local_dir and sep_model and token are removed as an arguments.
+    *NOTE*: your images must be named in the following format: yyyymmddHHMM.png/jpeg, and must be the only files in local_dir.
     
     Parameters
     _ _ _ _ _ 
@@ -191,8 +191,6 @@ def synch_local_imagery(station, camera, data_product, local_dir, value, time_st
     cutoff : int or None
         Crop available data to this many data points / frames.
         For example, if value='highest' and value=10, the 10 hishest data values between time_start and time_end will be synchronized.
-    save_dir : str
-        The directory to which to save frames and the final movie.
         
     Returns
     _ _ _ _ _ 
@@ -200,7 +198,21 @@ def synch_local_imagery(station, camera, data_product, local_dir, value, time_st
         The synchronized data and camera frames. Each data point in datas contains a time, data value, saved image path, and (if applicable) predicted view number. 
     '''      
     
+    _check_local_dir(local_dir)
+    
     datas = _synch_init(station, data_product, value, time_start, time_end, interval, cutoff)
+    
+    # Download image for each data point #
+    datas['image'] = 0
+    for i in range(len(datas)):
+        time_start = _dt2datestr(datas['date_time'].iloc[i])
+        time_end = _dt2datestr(datas['date_time'].iloc[i]+datetime.timedelta(minutes=1))
+        filename = _get_local_image(local_dir,time_start)
+        if filename:
+            datas['image'].iloc[i] = filename[0]
+        else:
+            datas['image'].iloc[i] = ''
+    
     return datas
     
     
@@ -308,6 +320,19 @@ def _call_WebcoosApi(camera, product, time_start, time_end, token, save_dir):
     return filenames
 
 
+def _get_local_image(local_dir,time):
+    dt_want = _datestr2dt(time)
+    ims = sorted(os.listdir(local_dir))
+    ims = [im for im in ims if '.png' in im or '.jpg' in im]
+    datestrs = [im.split('.')[0] for im in ims]
+    dts = np.array([_datestr2dt(datestr) for datestr in datestrs])
+    i_want = np.where(dts == dt_want)[0]
+    if len(i_want) > 0:
+        return [os.path.join(local_dir, str(np.array(ims)[i_want][0]))]
+    else:
+        return None
+
+
 def _datestr2dt(datestr):
     '''
     Convert a date-string of the form yyyymmddHHMM to a datetime.datetime object.
@@ -356,6 +381,14 @@ def _check_date_format(date, date_name, token):
 def _check_date_range(camera_name, product_name, start, stop, token):
     api = pywebcoos.API(token)
     api._check_date_range(camera_name, product_name, start, stop)
+    
+def _check_local_dir(local_dir):
+    files = os.listdir(local_dir)
+    exts = [file.split('.',-1) for file in files]
+    if len(files)==0:
+        raise ValueError('The input image directory is empty!')   
+    elif not all(np.array([ext in {'png', 'jpg', 'jpeg', 'tif', 'tiff'} for ext in exts])):
+        raise ValueError('The input image directory contains non-image files (must be png, jpg, jpeg, tif, or tiff). The input image directory must contain only the image files.')
 
     
 def _save_frames(datas, camera, station, view_num):
