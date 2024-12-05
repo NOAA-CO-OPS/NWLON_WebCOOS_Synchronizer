@@ -382,6 +382,7 @@ def _check_date_format(date, date_name, token):
 def _check_date_range(camera_name, product_name, start, stop, token):
     api = pywebcoos.API(token)
     api._check_date_range(camera_name, product_name, start, stop)
+
     
 def _check_local_dir(local_dir):
     files = os.listdir(local_dir)
@@ -389,12 +390,13 @@ def _check_local_dir(local_dir):
     pats = [re.match(r'^\d{12}\.*',f) for f in files]
 
     if len(files) == 0:  # Ensure there are files in the direcory #
-        raise ValueError('The input image directory is empty!')  # Ensure there are only image files in the directory #   
+        raise ValueError("The input image directory is empty!")  # Ensure there are only image files in the directory #   
     elif not all(np.array([ext in {'png', 'jpg', 'jpeg', 'tif', 'tiff'} for ext in exts])):
-        raise ValueError('The input image directory contains non-image files (must be png, jpg, jpeg, tif, or tiff). The input image directory must contain only the image files.')
+        raise ValueError("At least one file in the image directory does not have a png, jpg, or tif extension.")
     elif not all(pats):
-        raise ValueError('At least one file in the image directory is not named with the needed format. Every image must be named by the date/time the image was taken, with the format yyyymmddHHMM.png/jpg/tif.')
-    
+        raise ValueError("At least one file in the image directory is not named with the format yyyymmddHHMM.png/jpg/tif.")
+
+
 def _save_frames(datas, camera, station, view_num):
     '''
     Save each frame of a movie.
