@@ -9,6 +9,7 @@ import pandas as pd
 import pickle
 import pywebcoos  # Package available on the WebCOOS GitHub
 import random
+import re
 from sklearn.neural_network import MLPClassifier
 import warnings
 
@@ -384,12 +385,15 @@ def _check_date_range(camera_name, product_name, start, stop, token):
     
 def _check_local_dir(local_dir):
     files = os.listdir(local_dir)
-    exts = [file.split('.',-1) for file in files]
-    if len(files)==0:
-        raise ValueError('The input image directory is empty!')   
+    exts = [file.split('.')[-1] for file in files]
+    pats = [re.match(r'^\d{12}\.*',f) for f in files]
+
+    if len(files) == 0:  # Ensure there are files in the direcory #
+        raise ValueError('The input image directory is empty!')  # Ensure there are only image files in the directory #   
     elif not all(np.array([ext in {'png', 'jpg', 'jpeg', 'tif', 'tiff'} for ext in exts])):
         raise ValueError('The input image directory contains non-image files (must be png, jpg, jpeg, tif, or tiff). The input image directory must contain only the image files.')
-
+    elif not all(pats):
+        raise ValueError('At least one file in the image directory is not named with the needed format. Every image must be named by the date/time the image was taken, with the format yyyymmddHHMM.png/jpg/tif.')
     
 def _save_frames(datas, camera, station, view_num):
     '''
