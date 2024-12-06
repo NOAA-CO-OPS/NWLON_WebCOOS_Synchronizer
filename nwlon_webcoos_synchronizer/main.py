@@ -2,7 +2,7 @@ import datetime
 import glob
 from matplotlib.dates import DateFormatter
 import matplotlib.pyplot as plt
-from moviepy.editor import ImageSequenceClip, concatenate_videoclips
+from moviepy import *
 import numpy as np
 import os
 import pandas as pd
@@ -239,11 +239,9 @@ def make_movie(datas, camera, station, view_num=None):
         The full path to the video file (.mp4) that is created.
     '''
     # Create and save frames #
-    print('Making movie frames...')
     datas_mov = _save_frames(datas, camera, station, view_num)  
     
     # Make the movie #
-    print('Producing the movie...')
     video_file = _produce_movie(datas_mov)
     return video_file
 
@@ -488,7 +486,7 @@ def _produce_movie(datas_mov):
     clips = []
     for i in range(len(datas_mov)):
         frame_path = datas_mov['frame'].iloc[i]
-        clip = ImageSequenceClip([frame_path], fps=fps).set_duration(1/fps)            
+        clip = ImageSequenceClip([frame_path], fps=fps).with_duration(1/fps)            
         clips.append(clip)
 
     # Concatenate all clips into one video
