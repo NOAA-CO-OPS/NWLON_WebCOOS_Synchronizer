@@ -1,4 +1,4 @@
-data/
+data/models/
 .ipynb_checkpoints/
 nwlon_webcoos_synchronizer/__pycache__/
 nwlon_webcoos_synchronizer/.ipynb_checkpoints/

@@ -2,13 +2,14 @@ import datetime
 import glob
 from matplotlib.dates import DateFormatter
 import matplotlib.pyplot as plt
-from moviepy.editor import ImageSequenceClip, concatenate_videoclips
+from moviepy import *
 import numpy as np
 import os
 import pandas as pd
 import pickle
 import pywebcoos  # Package available on the WebCOOS GitHub
 import random
+import re
 from sklearn.neural_network import MLPClassifier
 import warnings
 
@@ -122,34 +123,7 @@ def synch(station, camera, data_product, camera_product, value, time_start, time
     _check_date_format(time_end, 'end', token)
     _check_date_range(camera, camera_product, time_start, time_end, token)
     
-    # First get all the data of the requested product for the requested time period #
-    data = _call_CoopsApi(station, data_product, time_start, time_end)
-    data = data[data['date_time'] >= _datestr2dt(time_start)]
-    data = data[data['date_time'] <= _datestr2dt(time_end)]
-    
-    # Interpolate to the desired data interval #
-    data_dates = pd.date_range(_datestr2dt(time_start), _datestr2dt(time_end), freq=str(interval)+'min')      
-    datai_v = data['value']
-    datai_v = np.interp(data_dates, data['date_time'], data['value'])
-    datai = pd.DataFrame({'date_time': data_dates, 'value': datai_v})
-    data = datai
-    
-    # Determine the data points to get images for based on the value and cutoff arguements #
-    if value == 'all':
-        # Get images for all of the observations #
-        datas = data.dropna()
-    elif isinstance(value, str) and value != 'all':
-        raise ValueError("value argument must be either 'all' or a float/integer value.")
-    elif isinstance(value, int) or isinstance(value, float):
-        # Get cutoff images for observations equal to val (within a tolerance) #
-        tol = 0.01
-        datas = data
-        datas = datas[datas['value'] >= value-tol]
-        datas = datas[datas['value'] <= value+tol]
-        datas = datas.sample(frac=1)  # Shuffle the rows so various times are returned #
-        datas = datas.iloc[0:cutoff]
-    else:
-        raise ValueError("value argument must be either 'all' or a float/integer value.")
+    datas = _synch_init(station, data_product, value, time_start, time_end, interval, cutoff)
         
     # Download image for each data point #
     datas['image'] = 0
@@ -190,6 +164,59 @@ def synch(station, camera, data_product, camera_product, value, time_start, time
     return datas
 
 
+def synch_local(station, camera, data_product, local_dir, value, time_start, time_end, interval, cutoff):
+    '''
+    Function to synchronize locally-stored camera imagery frames with CO-OPS data.
+    *NOTE*: your images must be named in the following format: yyyymmddHHMM.png/jpeg, and must be the only files in local_dir.
+    
+    Parameters
+    _ _ _ _ _ 
+    station : int
+        The NWLON station ID from which to use data.
+    camera : str
+        The name of the camera from which to use imagery. Can be anything in this case.
+    data_product : str
+        The CO-OPS data product to use from station (e.g. water_level).
+    local_dir : str
+        The local directory containing the time-stamped camera imager. 
+    value : str or float
+        A qualifier to determine the type of data from which a movie is made. Options are:
+            'all': Make a movie of all data points in data_product between time_start and time_end.
+            float e.g. 0.5: Make a movie of n data points in data_product between time_start and time_end that are ~equal to this value, where n is given by cutoff.
+    time_start : str
+        The time to begin synchronizing data, in local time at the camera. In format 'yyyymmddHHMM'.
+    time_end : str
+        The time to stop synchronizing data, in local time at the camera. In format 'yyyymmddHHMM'.
+    interval : int
+        The time interval for data points and camera imagery. If an interval is entered that is less than or greater than the downloaded station data interval, the data is interpolated to the desired interval.
+    cutoff : int or None
+        Crop available data to this many data points / frames.
+        For example, if value='highest' and value=10, the 10 hishest data values between time_start and time_end will be synchronized.
+        
+    Returns
+    _ _ _ _ _ 
+    datas : Pandas DataFrame
+        The synchronized data and camera frames. Each data point in datas contains a time, data value, saved image path, and (if applicable) predicted view number. 
+    '''      
+    
+    _check_local_dir(local_dir)
+    
+    datas = _synch_init(station, data_product, value, time_start, time_end, interval, cutoff)
+    
+    # Download image for each data point #
+    datas['image'] = 0
+    for i in range(len(datas)):
+        time_start = _dt2datestr(datas['date_time'].iloc[i])
+        time_end = _dt2datestr(datas['date_time'].iloc[i]+datetime.timedelta(minutes=1))
+        filename = _get_local_image(local_dir, time_start)
+        if filename:
+            datas['image'].iloc[i] = filename[0]
+        else:
+            datas['image'].iloc[i] = ''
+    
+    return datas
+    
+    
 def make_movie(datas, camera, station, view_num=None):
     '''
     Function to make a movie of synchronized data and webcamera imagery.
@@ -212,13 +239,43 @@ def make_movie(datas, camera, station, view_num=None):
         The full path to the video file (.mp4) that is created.
     '''
     # Create and save frames #
-    print('Making movie frames...')
     datas_mov = _save_frames(datas, camera, station, view_num)  
     
     # Make the movie #
-    print('Producing the movie...')
     video_file = _produce_movie(datas_mov)
     return video_file
+
+
+def _synch_init(station, data_product, value, time_start, time_end, interval, cutoff):
+    # First get all the data of the requested product for the requested time period #
+    data = _call_CoopsApi(station, data_product, time_start, time_end)
+    data = data[data['date_time'] >= _datestr2dt(time_start)]
+    data = data[data['date_time'] <= _datestr2dt(time_end)]
+    
+    # Interpolate to the desired data interval #
+    data_dates = pd.date_range(_datestr2dt(time_start), _datestr2dt(time_end), freq=str(interval)+'min')      
+    datai_v = data['value']
+    datai_v = np.interp(data_dates, data['date_time'], data['value'])
+    datai = pd.DataFrame({'date_time': data_dates, 'value': datai_v})
+    data = datai
+    
+    # Determine the data points to get images for based on the value and cutoff arguements #
+    if value == 'all':
+        # Get images for all of the observations #
+        datas = data.dropna()
+    elif isinstance(value, str) and value != 'all':
+        raise ValueError("value argument must be either 'all' or a float/integer value.")
+    elif isinstance(value, int) or isinstance(value, float):
+        # Get cutoff images for observations equal to val (within a tolerance) #
+        tol = 0.01
+        datas = data
+        datas = datas[datas['value'] >= value-tol]
+        datas = datas[datas['value'] <= value+tol]
+        datas = datas.sample(frac=1)  # Shuffle the rows so various times are returned #
+        datas = datas.iloc[0:cutoff]
+    else:
+        raise ValueError("value argument must be either 'all' or a float/integer value.")
+    return datas    
 
     
 def _call_CoopsApi(station, data_product, time_start, time_end):
@@ -260,6 +317,19 @@ def _call_WebcoosApi(camera, product, time_start, time_end, token, save_dir):
                              interval=1,
                              save_dir=save_dir)
     return filenames
+
+
+def _get_local_image(local_dir, time):
+    dt_want = _datestr2dt(time)
+    ims = sorted(os.listdir(local_dir))
+    ims = [im for im in ims if '.png' in im or '.jpg' in im]
+    datestrs = [im.split('.')[0] for im in ims]
+    dts = np.array([_datestr2dt(datestr) for datestr in datestrs])
+    i_want = np.where(dts == dt_want)[0]
+    if len(i_want) > 0:
+        return [os.path.join(local_dir, str(np.array(ims)[i_want][0]))]
+    else:
+        return None
 
 
 def _datestr2dt(datestr):
@@ -312,6 +382,19 @@ def _check_date_range(camera_name, product_name, start, stop, token):
     api._check_date_range(camera_name, product_name, start, stop)
 
     
+def _check_local_dir(local_dir):
+    files = os.listdir(local_dir)
+    exts = [file.split('.')[-1] for file in files]
+    pats = [re.match(r'^\d{12}\.*', f) for f in files]
+
+    if len(files) == 0:  # Ensure there are files in the direcory #
+        raise ValueError("The input image directory is empty!")  # Ensure there are only image files in the directory #   
+    elif not all(np.array([ext in {'png', 'jpg', 'jpeg', 'tif', 'tiff'} for ext in exts])):
+        raise ValueError("At least one file in the image directory does not have a png, jpg, or tif extension.")
+    elif not all(pats):
+        raise ValueError("At least one file in the image directory is not named with the format yyyymmddHHMM.png/jpg/tif.")
+
+
 def _save_frames(datas, camera, station, view_num):
     '''
     Save each frame of a movie.
@@ -403,7 +486,7 @@ def _produce_movie(datas_mov):
     clips = []
     for i in range(len(datas_mov)):
         frame_path = datas_mov['frame'].iloc[i]
-        clip = ImageSequenceClip([frame_path], fps=fps).set_duration(1/fps)            
+        clip = ImageSequenceClip([frame_path], fps=fps).with_duration(1/fps)            
         clips.append(clip)
 
     # Concatenate all clips into one video
