@@ -208,7 +208,7 @@ def synch_local(station, camera, data_product, local_dir, value, time_start, tim
     for i in range(len(datas)):
         time_start = _dt2datestr(datas['date_time'].iloc[i])
         time_end = _dt2datestr(datas['date_time'].iloc[i]+datetime.timedelta(minutes=1))
-        filename = _get_local_image(local_dir,time_start)
+        filename = _get_local_image(local_dir, time_start)
         if filename:
             datas['image'].iloc[i] = filename[0]
         else:
@@ -319,7 +319,7 @@ def _call_WebcoosApi(camera, product, time_start, time_end, token, save_dir):
     return filenames
 
 
-def _get_local_image(local_dir,time):
+def _get_local_image(local_dir, time):
     dt_want = _datestr2dt(time)
     ims = sorted(os.listdir(local_dir))
     ims = [im for im in ims if '.png' in im or '.jpg' in im]
@@ -385,7 +385,7 @@ def _check_date_range(camera_name, product_name, start, stop, token):
 def _check_local_dir(local_dir):
     files = os.listdir(local_dir)
     exts = [file.split('.')[-1] for file in files]
-    pats = [re.match(r'^\d{12}\.*',f) for f in files]
+    pats = [re.match(r'^\d{12}\.*', f) for f in files]
 
     if len(files) == 0:  # Ensure there are files in the direcory #
         raise ValueError("The input image directory is empty!")  # Ensure there are only image files in the directory #   

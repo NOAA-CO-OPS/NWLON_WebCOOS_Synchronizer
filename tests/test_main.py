@@ -61,8 +61,8 @@ def test_invalid_local_file_extension_raises_synch_local_exception():
     with open('data/images/202401011200.txt', 'w'):
         pass
     with pytest.raises(ValueError, match="At least one file in the image directory does not have a png, jpg, or tif extension."):
-        synchro = synch.synch_local(station=8774230,camera='Test camera',data_product='water_level',local_dir='data/images', 
-                                    value='all',time_start='202406201130',time_end='202406201200',interval=6,cutoff=None)
+        synch.synch_local(station=8774230, camera='Test camera', data_product='water_level', local_dir='data/images', 
+                          value='all', time_start='202406201130', time_end='202406201200', interval=6, cutoff=None)
     os.remove('data/images/202401011200.txt')
     
     
@@ -70,8 +70,8 @@ def test_invalid_local_file_name_raises_synch_local_exception():
     with open('data/images/BadNameFormat.jpg', 'w'):
         pass
     with pytest.raises(ValueError, match="At least one file in the image directory is not named with the format yyyymmddHHMM.png/jpg/tif."):
-        synchro = synch.synch_local(station=8774230,camera='Test camera',data_product='water_level',local_dir='data/images', 
-                                    value='all',time_start='202406201130',time_end='202406201200',interval=6,cutoff=None)
+        synch.synch_local(station=8774230, camera='Test camera', data_product='water_level', local_dir='data/images', 
+                          value='all', time_start='202406201130', time_end='202406201200', interval=6, cutoff=None)
     os.remove('data/images/BadNameFormat.jpg')
 
 
@@ -148,7 +148,7 @@ def test_synch_local():
                                 time_end='202406201200', 
                                 interval=6, 
                                 cutoff=None)
-    assert len(synchro.iloc[1]['image'])>0 , 'Local image synchronization failed.'
+    assert len(synchro.iloc[1]['image']) > 0 , 'Local image synchronization failed.'
 
     
 def test_make_movie():
