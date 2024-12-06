@@ -1,6 +1,6 @@
 # NWLON_WebCOOS_Synchronizer
 
-This is a package to create time-synchronized visualizations of [NOAA CO-OPS water level data](https://tidesandcurrents.noaa.gov/inundationdb/) and [WebCOOS webcamera imagery](https://webcoos.org/), including from pan-tilt-zoom (PTZ) cameras.
+Create time-synchronized visualizations of [NOAA CO-OPS water level data](https://tidesandcurrents.noaa.gov/inundationdb/) and [WebCOOS webcamera imagery](https://webcoos.org/) or your own time-stamped imagery, including from pan-tilt-zoom (PTZ) cameras.
 
 
 ## Table of Contents
@@ -32,7 +32,7 @@ conda activate nwlon_webcoos_synchronizer
 
 ## WebCOOS API Key
 
-To use the tool, you need a WebCOOS API Key. You can register for one [here](https://webcoos.org/docs/doc/access/)
+To use the tool with WebCOOS imagery or run the test suite, you need a WebCOOS API Key. You can register for one [here](https://webcoos.org/docs/doc/access/)
 
 
 
@@ -61,7 +61,47 @@ pytest -v
 
 ## Usage
 
-Demo notebookes are provided in /demos to showcase package functionality.
+For WebCOOS imagery:
+
+```python
+import nwlon_webcoos_synchronizer as nws
+token = ''  # Insert your WebCOOS API token here #
+station = 8665530
+camera = 'North Inlet-Winyah Bay  National Estuarine Research Reserve Dock, Georgetown, SC'
+synchro = nws.synch(station=station,                     # The NWLON station ID
+                    camera=camera,                       # The WebCOOS camera name #
+                    data_product='water_level',          # The CO-OPS data product to make a timeseries of #
+                    camera_product='one-minute-stills',  # The WebCOOS image product to use for the movie #
+                    value='all',                         # Can be 'all' or a float value, depending on what you want.
+                    time_start='202312170800',           # Start of the movie in local time at the camera location #
+                    time_end='202312171000',             # End of the movie in local time at the camera location
+                    interval=6,                          # Interval of data and imagery, in minutes. #
+                    cutoff=None,                         # Make the movie of only this many data points. Use with value to get what you want.  #
+                    sep_model=None,                      # A trained view separation model. Can be made yourself. Not needed for this non-PTZ camera.
+                    token=token,                         # Your WebCOOS API Token
+                    save_dir='.')                        # The directory in which to save the images and movie
+mov = synch.make_movie(synchro,camera,station)
+```
+
+For your own imagery:
+
+```python
+import nwlon_webcoos_synchronizer as nws
+station = 8774230
+camera = 'My camera with any name'
+synchro = nws.synch_local(station=station, 
+                          camera=camera, 
+                          data_product='water_level', 
+                          local_dir='/dir_with_time_stamped_imagery', 
+                          value='all', 
+                          time_start='yyyymmddHHMM', 
+                          time_end='yyyymmddHHMM', 
+                          interval=6, 
+                          cutoff=None)
+mov = synch.make_movie(synchro,camera,station)
+```
+
+Demo notebookes are provided in /demos to further showcase package functionality.
 
 
 ## Disclaimer
