@@ -7,7 +7,7 @@ setup(
     include_package_data=True,
     install_requires=[
         'matplotlib',
-        'moviepy==1.0.3',
+        'moviepy',
         'numpy',
         'pandas',
         'scikit-learn',
