@@ -2,8 +2,6 @@ import datetime
 import glob
 from matplotlib.dates import DateFormatter
 import matplotlib.pyplot as plt
-from moviepy.video.compositing.concatenate import concatenate_videoclips
-from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 import numpy as np
 import os
 import pandas as pd
@@ -13,6 +11,13 @@ import random
 import re
 from sklearn.neural_network import MLPClassifier
 import warnings
+
+import moviepy
+if moviepy.__version__ == '1.0.3':
+    from moviepy.video.compositing.concatenate import concatenate_videoclips
+    from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
+else:
+    from moviepy import *
 
 from .CoopsApi import CoopsApi
 from .CoopsApiTwo import CoopsApiTwo
