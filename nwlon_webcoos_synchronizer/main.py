@@ -2,7 +2,8 @@ import datetime
 import glob
 from matplotlib.dates import DateFormatter
 import matplotlib.pyplot as plt
-from moviepy import *
+from moviepy.video.compositing.concatenate import concatenate_videoclips
+from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 import numpy as np
 import os
 import pandas as pd
@@ -217,7 +218,7 @@ def synch_local(station, camera, data_product, local_dir, value, time_start, tim
     return datas
     
     
-def make_movie(datas, camera, station, view_num=None):
+def make_movie(datas, camera, station, fps=4, view_num=None):
     '''
     Function to make a movie of synchronized data and webcamera imagery.
     
@@ -229,6 +230,8 @@ def make_movie(datas, camera, station, view_num=None):
         The name of the camera from which datas was created.
     station : int
         The NWLON station ID from which datas was created.
+    fps : int
+        The frames per second of the movie.
     view_num : int, optional
         If a sep_model was given to synch(), the number of the view for which you want to create a movie. Otherwise None.
         Default is None.
@@ -239,10 +242,10 @@ def make_movie(datas, camera, station, view_num=None):
         The full path to the video file (.mp4) that is created.
     '''
     # Create and save frames #
-    datas_mov = _save_frames(datas, camera, station, view_num)  
+    datas_mov = _save_frames(datas, camera, station, view_num)      
     
     # Make the movie #
-    video_file = _produce_movie(datas_mov)
+    video_file = _produce_movie(datas_mov, fps)
     return video_file
 
 
@@ -468,16 +471,10 @@ def _save_frames(datas, camera, station, view_num):
     return datas
 
 
-def _produce_movie(datas_mov):
+def _produce_movie(datas_mov, fps):
     '''
     Create a movie from saved frames.
-    '''
-    # Determine desired movie fps #
-    if datas_mov['date_time'].diff().dropna().nunique() == 1:  # If datas is evenly spaced in time, then val='all' and we want a timeseries, fps should be fast
-        fps = 4
-    else:  # If datas is not evenly spaced in time, then user wants images at a certain value, an the movie should be slower #
-        fps = 2
-        
+    '''        
     # If a sep_model was used, frames were only saved for images with the desired view_num.
     # Need to drop entries without frames, which have values = 0 #
     datas_mov = datas_mov[~(datas_mov['frame'] == 0)]
@@ -486,7 +483,7 @@ def _produce_movie(datas_mov):
     clips = []
     for i in range(len(datas_mov)):
         frame_path = datas_mov['frame'].iloc[i]
-        clip = ImageSequenceClip([frame_path], fps=fps).with_duration(1/fps)            
+        clip = ImageSequenceClip([frame_path], fps=fps)            
         clips.append(clip)
 
     # Concatenate all clips into one video

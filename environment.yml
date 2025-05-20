@@ -10,5 +10,5 @@ dependencies:
   - scikit-learn
   - pytz
   - pip:
-    - moviepy
+    - moviepy==1.0.3
     - pywebcoos @ git+https://github.com/WebCOOS/py-webcoos-client.git@main#egg=pywebcoos
