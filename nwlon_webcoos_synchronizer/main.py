@@ -471,7 +471,7 @@ def _save_frames(datas, camera, station, view_num):
         ax_img.imshow(im)
 
         # Save the frame #
-        savename = datas['image'].iloc[i]+'_frame.png'            
+        savename = datas['image'].iloc[i] + '_frame.png'            
         plt.savefig(savename, dpi=450)
         datas['frame'].iloc[i] = savename
         plt.close()
