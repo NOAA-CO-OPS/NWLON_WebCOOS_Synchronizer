@@ -451,17 +451,20 @@ def _save_frames(datas, camera, station, view_num):
             ax_data.plot(ax_data.get_xlim(), [mhhw, mhhw], 'k--')
             ax_data.text(ax_data.get_xlim()[0], mhhw, 'MHHW', color='k', fontsize=12)
         minor = _get_flood_thresh(station)['nws_minor']
-        if ax_data.get_ylim()[0] < minor < ax_data.get_ylim()[1]:  # Plot the minor flood level if the data covers it #
-            ax_data.plot(ax_data.get_xlim(), [minor, minor], 'y--')
-            ax_data.text(ax_data.get_xlim()[0], minor, 'Minor flooding', color='y', fontsize=12)
+        if minor is not None:
+            if ax_data.get_ylim()[0] < minor < ax_data.get_ylim()[1]:  # Plot the minor flood level if the data covers it #
+                ax_data.plot(ax_data.get_xlim(), [minor, minor], 'y--')
+                ax_data.text(ax_data.get_xlim()[0], minor, 'Minor flooding', color='y', fontsize=12)
         moderate = _get_flood_thresh(station)['nws_moderate']
-        if ax_data.get_ylim()[0] < moderate < ax_data.get_ylim()[1]:  # Plot the moderate flood level if the data covers it #
-            ax_data.plot(ax_data.get_xlim(), [moderate, moderate], 'r--')
-            ax_data.text(ax_data.get_xlim()[0], moderate, 'Moderate flooding', color='r', fontsize=12)        
+        if moderate is not None:
+            if ax_data.get_ylim()[0] < moderate < ax_data.get_ylim()[1]:  # Plot the moderate flood level if the data covers it #
+                ax_data.plot(ax_data.get_xlim(), [moderate, moderate], 'r--')
+                ax_data.text(ax_data.get_xlim()[0], moderate, 'Moderate flooding', color='r', fontsize=12)        
         major = _get_flood_thresh(station)['nws_major']
-        if ax_data.get_ylim()[0] < major < ax_data.get_ylim()[1]:  # Plot the major flood level if the data covers it #
-            ax_data.plot(ax_data.get_xlim(), [major, major], 'm--')
-            ax_data.text(ax_data.get_xlim()[0], major, 'Major flooding', color='m', fontsize=12)
+        if major is not None:
+            if ax_data.get_ylim()[0] < major < ax_data.get_ylim()[1]:  # Plot the major flood level if the data covers it #
+                ax_data.plot(ax_data.get_xlim(), [major, major], 'm--')
+                ax_data.text(ax_data.get_xlim()[0], major, 'Major flooding', color='m', fontsize=12)
 
         # Plot image on the image axis #          
         im = plt.imread(datas['image'].iloc[i])
