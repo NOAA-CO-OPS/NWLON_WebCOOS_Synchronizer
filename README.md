@@ -17,7 +17,7 @@ Create time-synchronized visualizations of [NOAA CO-OPS water level data](https:
 For general use:
 
 ```bash
-pip install git+https://github.com/NOAA-CO-OPS/NWLON_WebCOOS_Synchronizer.git#egg=nwlon_webcoos_synchronizer
+pip install git+https://github.com/NOAA-CO-OPS/NWLON_WebCOOS_Synchronizer.git
 ```
 
 For development:

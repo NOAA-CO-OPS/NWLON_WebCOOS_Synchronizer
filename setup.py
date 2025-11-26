@@ -10,8 +10,9 @@ setup(
         'moviepy',
         'numpy',
         'pandas',
+        'requests',
         'scikit-learn',
         'pytz',
-        'pywebcoos @ git+https://github.com/WebCOOS/py-webcoos-client.git@main#egg=pywebcoos',
+        'pywebcoos @ git+https://github.com/WebCOOS/py-webcoos-client.git',
     ],
 )
