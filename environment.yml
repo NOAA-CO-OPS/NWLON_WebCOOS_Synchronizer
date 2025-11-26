@@ -7,8 +7,9 @@ dependencies:
   - numpy
   - pandas
   - pip
+  - requests
   - scikit-learn
   - pytz
   - pip:
     - moviepy
-    - pywebcoos @ git+https://github.com/WebCOOS/py-webcoos-client.git@main#egg=pywebcoos
+    - pywebcoos @ git+https://github.com/WebCOOS/py-webcoos-client.git
