@@ -132,7 +132,7 @@ def synch(station, camera, data_product, camera_product, value, time_start, time
     datas = _synch_init(station, data_product, value, time_start, time_end, interval, cutoff)
         
     # Download image for each data point #
-    datas['image'] = 0
+    datas['image'] = ''
     for i in range(len(datas)):
         time_start = _dt2datestr(datas['date_time'].iloc[i])
         time_end = _dt2datestr(datas['date_time'].iloc[i]+datetime.timedelta(minutes=1))
@@ -143,9 +143,9 @@ def synch(station, camera, data_product, camera_product, value, time_start, time
                                     token=token,
                                     save_dir=save_dir)
         if filename:
-            datas['image'].iloc[i] = filename[0]
+            datas.loc[i,'image'] = filename[0]
         else:
-            datas['image'].iloc[i] = ''
+            datas.loc[i,'image'] = ''
             
     # If a view separator model has been provided, go through each image and label the view #
     if sep_model is not None:
@@ -407,7 +407,7 @@ def _save_frames(datas, camera, station, view_num):
     '''
     Save each frame of a movie.
     '''
-    datas['frame'] = 0
+    datas['frame'] = ''
     
     if datas['date_time'].diff().dropna().nunique() == 1:  # If datas is evenly spaced in time, then val='all' and we want a timeseries.
         ts = True
@@ -473,7 +473,7 @@ def _save_frames(datas, camera, station, view_num):
         # Save the frame #
         savename = datas['image'].iloc[i] + '_frame.png'            
         plt.savefig(savename, dpi=450)
-        datas['frame'].iloc[i] = savename
+        datas.loc[i,'frame'] = savename
         plt.close()
         
     return datas
