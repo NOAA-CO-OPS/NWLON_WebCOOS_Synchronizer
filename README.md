@@ -80,7 +80,7 @@ synchro = nws.synch(station=station,                     # The NWLON station ID
                     sep_model=None,                      # A trained view separation model. Can be made yourself. Not needed for this non-PTZ camera.
                     token=token,                         # Your WebCOOS API Token
                     save_dir='.')                        # The directory in which to save the images and movie
-mov = synch.make_movie(synchro,camera,station)
+mov = nws.make_movie(synchro,camera,station)
 ```
 
 For your own imagery:
@@ -98,7 +98,7 @@ synchro = nws.synch_local(station=station,
                           time_end='yyyymmddHHMM', 
                           interval=6, 
                           cutoff=None)
-mov = synch.make_movie(synchro,camera,station)
+mov = nws.make_movie(synchro,camera,station)
 ```
 
 Demo notebookes are provided in /demos to further showcase package functionality.
