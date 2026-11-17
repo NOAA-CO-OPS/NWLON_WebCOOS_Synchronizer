@@ -1,9 +1,42 @@
 import os
+from nwlon_webcoos_synchronizer.main import make_movie
+import requests
+import json
 import pytest
 import warnings
-
+from pandas import DataFrame
+from pywebcoos import API
 import nwlon_webcoos_synchronizer as synch
+import math
 
+
+def haversine(coord1, coord2):
+    """
+    Calculate the great-circle distance between two points
+    on the Earth (specified in decimal degrees: (lat, lon)).
+    Returns the distance in kilometers.
+    """
+    lat1, lon1 = coord1
+    lat2, lon2 = coord2
+
+    # Radius of the Earth in kilometers (mean radius)
+    R = 6371.0
+
+    # Convert latitude and longitude from degrees to radians
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+
+    # Apply Haversine formula
+    a = (
+        math.sin(delta_phi / 2.0) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    distance = R * c
+    return distance
 
 warnings.filterwarnings('ignore')
 
@@ -150,7 +183,7 @@ def test_synch_local():
                                 cutoff=None)
     assert len(synchro.iloc[1]['image']) > 0 , 'Local image synchronization failed.'
 
-    
+
 def test_make_movie():
     key = _get_key()
     synchro = synch.synch(station=8665530,           
@@ -181,6 +214,67 @@ def test_make_movie():
     assert os.path.exists('nwlon_charleston-2024-01-01-150053Z--nwlon_charleston-2024-01-01-150553Z--Video.mp4'), 'Movie creation failed - movie not created'
     os.remove('nwlon_charleston-2024-01-01-150053Z--nwlon_charleston-2024-01-01-150553Z--Video.mp4')
 
+
+def test_build_virtual_station_camera_search():
+    """
+    Given a station """
+    # station = 8418150  # Portland, ME
+    my_lat = 44
+    my_lon = -70
+    api_token = _get_key()
+    url = "https://app.webcoos.org/webcoos/api/v1/assets/"
+    headers = {
+        "Authorization": f"Token {api_token}",
+    }
+    response = requests.get(url, headers=headers, timeout=30)
+    data = response.json()
+    results = data.get('results', [])
+    station_info = []
+    for each in results:
+        name = each['package']['data']['common']['label']
+        lon, lat = each['package']['data']['properties']['location']['coordinates']
+        dxy = haversine((lat, lon), (my_lat, my_lon))
+        station_info.append({
+            'uuid': each['uuid'],
+            'name': name,
+            'lon': lon,
+            'lat': lat,
+            'distance': dxy
+        })
+    df = DataFrame(station_info).sort_values(by='distance')
+    # _next = data.get('next', None)
+    print(df)
+
+def test_build_virtual_station_station_search():
+    pass
+
+def test_build_virtual_station_end_to_end():
+    """
+    Confirm that geo-lookup matching based on station coordinates works correctly.
+
+    - find stations near camera (N>0)
+    - find cameras near station (N=1)
+    """
+    token = _get_key()  # Insert your WebCOOS API token here #
+    station = 8418150  # Portland, ME
+    camera = 'Camp Ellis Beach at Saco, ME - South view'
+    print("Starting data sync...")
+    synchro = synch.synch(
+        station=station,
+        camera=camera,
+        data_product='water_level',
+        camera_product='one-minute-stills',
+        value='all',
+        time_start='202512170800',
+        time_end='202512171000',
+        interval=6,
+        cutoff=None,
+        sep_model=None,
+        token=token,
+        save_dir='tmp'
+    )
+    print("Completed image sync, starting to render movie...")
+    _ = synch.make_movie(synchro,camera,station)
 
 def _get_key():
     key = os.getenv('API_KEY')
