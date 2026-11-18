@@ -11,8 +11,8 @@ import random
 import re
 from sklearn.neural_network import MLPClassifier
 import warnings
+import click
 from erddapy import ERDDAP
-
 
 import moviepy
 if moviepy.__version__ == '1.0.3':
@@ -543,22 +543,31 @@ def _save_frames(datas, camera, station, view_num):
         ax_data.set_ylabel('Height in meters (MHHW)')
         ax_img.set_title('Camera: '+camera+'\nGauge: '+str(station), fontsize=10, fontweight='normal', loc='left')
 
-        # Plot the NWS flood threshold levels on the data axis #
+        # Plot the NWS flood threshold levels on the data axis (only for NWLON data) #
         mhhw = 0
         if ax_data.get_ylim()[0] < mhhw < ax_data.get_ylim()[1]:  # Plot the mhhw level if the data covers it #
             ax_data.plot(ax_data.get_xlim(), [mhhw, mhhw], 'k--')
             ax_data.text(ax_data.get_xlim()[0], mhhw, 'MHHW', color='k', fontsize=12)
-        minor = _get_flood_thresh(station)['nws_minor']
+        if station != 0:
+            minor = _get_flood_thresh(station)['nws_minor']
+        else:
+            minor = None
         if minor is not None:
             if ax_data.get_ylim()[0] < minor < ax_data.get_ylim()[1]:  # Plot the minor flood level if the data covers it #
                 ax_data.plot(ax_data.get_xlim(), [minor, minor], 'y--')
                 ax_data.text(ax_data.get_xlim()[0], minor, 'Minor flooding', color='y', fontsize=12)
-        moderate = _get_flood_thresh(station)['nws_moderate']
+        if station != 0:
+            moderate = _get_flood_thresh(station)['nws_moderate']
+        else:
+            moderate = None
         if moderate is not None:
             if ax_data.get_ylim()[0] < moderate < ax_data.get_ylim()[1]:  # Plot the moderate flood level if the data covers it #
                 ax_data.plot(ax_data.get_xlim(), [moderate, moderate], 'r--')
                 ax_data.text(ax_data.get_xlim()[0], moderate, 'Moderate flooding', color='r', fontsize=12)        
-        major = _get_flood_thresh(station)['nws_major']
+        if station != 0:
+            major = _get_flood_thresh(station)['nws_major']
+        else:
+            major = None
         if major is not None:
             if ax_data.get_ylim()[0] < major < ax_data.get_ylim()[1]:  # Plot the major flood level if the data covers it #
                 ax_data.plot(ax_data.get_xlim(), [major, major], 'm--')
@@ -791,3 +800,50 @@ class ViewSeparator():
         X = np.vstack(dset_pred['image vec'].tolist()) / 255.0
         pred = model.predict(X)
         return pred
+
+@click.command()
+@click.option('--station', required=True, type=int, help='The NWLON station ID. Use 0 if using RA data from an ERDDAP server.')
+@click.option('--camera', required=True, type=str, help='The WebCOOS camera name.')
+@click.option('--data-product', required=True, type=str, help='The CO-OPS data product to make a timeseries of.')
+@click.option('--camera-product', required=True, type=str, help='The WebCOOS image product to use for the movie.')
+@click.option('--value', default='all', help="Qualifier for data types: 'all' or a numeric float value.")
+@click.option('--time-start', required=True, type=str, help="Start time (camera local time) in format 'yyyymmddHHMM'.")
+@click.option('--time-end', required=True, type=str, help="Stop time (camera local time) in format 'yyyymmddHHMM'.")
+@click.option('--interval', required=True, type=int, help='The time interval for data points and camera imagery in minutes.')
+@click.option('--cutoff', type=int, default=None, help='Make the movie of only this many data points. Use with value to get what you want.')
+@click.option('--sep-model', type=click.Path(exists=True), default=None, help='A trained view separation model. Can be made yourself. Not needed for this non-PTZ camera.')
+@click.option('--token', required=True, envvar='WEBCOOS_TOKEN', help='Your WebCOOS API token.')
+@click.option('--save-dir', required=True, type=click.Path(), help='The directory to which to save frames and the final movie.')
+@click.option('--erddap-link', default="", type=click.Path(), help='The ERDDAP Server for the data. Not used if using NWLON data')
+@click.option('--erddap-dataset-id', default="", type=click.Path(), help='The RA dataset id. Not used if using NWLON data.')
+@click.option('--fps', type=int, default=4, help='The frames per second of the movie.')
+@click.option('--view-num', type=int, default=None, help='The number of the view for which you want to create a movie.')
+def cli(station, camera, data_product, camera_product, value, time_start, time_end, interval, cutoff, sep_model, token, save_dir, erddap_link, erddap_dataset_id, fps, view_num):
+    """Command line interface to synchronize CO-OPS data with WebCOOS imagery and create a movie."""
+    
+    # Handle the casting of `value` since click processes strings by default
+    if value.lower() != 'all':
+        try:
+            value = float(value)
+        except ValueError:
+            raise click.BadParameter("value must be 'all' or a numeric value.")
+    
+    click.echo("Synchronizing data and downloading frames...")
+    datas = synch(
+        station=station, camera=camera, data_product=data_product, 
+        camera_product=camera_product, value=value, time_start=time_start, 
+        time_end=time_end, interval=interval, cutoff=cutoff, 
+        sep_model=sep_model, token=token, save_dir=save_dir,
+        erddap_link=erddap_link, erddap_dataset_id=erddap_dataset_id
+    )
+                  
+    click.echo("Generating movie...")
+    video_file = make_movie(
+        datas=datas, camera=camera, station=station, 
+        fps=fps, view_num=view_num
+    )
+    
+    click.echo(f"Movie saved successfully to: {video_file}")
+
+if __name__ == '__main__':
+    cli()
