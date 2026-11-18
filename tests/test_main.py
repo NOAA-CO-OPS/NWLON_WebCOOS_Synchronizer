@@ -1,44 +1,29 @@
+"""
+Unit and integration testing for the NWLON WebCOOS Synchronizer
+"""
 import os
-from nwlon_webcoos_synchronizer.main import make_movie
-import requests
-import json
-import pytest
 import warnings
-from pandas import DataFrame
-from pywebcoos import API
+from typing import cast
+import pytest
 import nwlon_webcoos_synchronizer as synch
-import math
-
-
-def haversine(coord1, coord2):
-    """
-    Calculate the great-circle distance between two points
-    on the Earth (specified in decimal degrees: (lat, lon)).
-    Returns the distance in kilometers.
-    """
-    lat1, lon1 = coord1
-    lat2, lon2 = coord2
-
-    # Radius of the Earth in kilometers (mean radius)
-    R = 6371.0
-
-    # Convert latitude and longitude from degrees to radians
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    delta_phi = math.radians(lat2 - lat1)
-    delta_lambda = math.radians(lon2 - lon1)
-
-    # Apply Haversine formula
-    a = (
-        math.sin(delta_phi / 2.0) ** 2
-        + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0) ** 2
-    )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-    distance = R * c
-    return distance
+from nwlon_webcoos_synchronizer.search import (
+    get_station_metadata,
+    get_nearby_stations,
+    get_all_cameras_with_metadata,
+    get_single_camera_with_metadata,
+    calculate_camera_distance_table,
+    calculate_station_distance_table
+)
 
 warnings.filterwarnings('ignore')
+
+# Constants for test parameterization
+NWLON_STATIONS = [
+    8418150  # Portland ME
+]
+WEBCOOS_CAMERAS = [
+    "273f586b-d93a-443c-8f34-6e8e707a0c43",  # Saco ME
+]
 
 
 # Input checking / error handling tests #
@@ -215,49 +200,92 @@ def test_make_movie():
     os.remove('nwlon_charleston-2024-01-01-150053Z--nwlon_charleston-2024-01-01-150553Z--Video.mp4')
 
 
-def test_build_virtual_station_camera_search():
+@pytest.mark.parametrize("station", NWLON_STATIONS)
+def test_build_virtual_station_camera_search(station: int):
     """
-    Given a station """
-    # station = 8418150  # Portland, ME
-    my_lat = 44
-    my_lon = -70
-    api_token = _get_key()
-    url = "https://app.webcoos.org/webcoos/api/v1/assets/"
-    headers = {
-        "Authorization": f"Token {api_token}",
-    }
-    response = requests.get(url, headers=headers, timeout=30)
-    data = response.json()
-    results = data.get('results', [])
-    station_info = []
-    for each in results:
-        name = each['package']['data']['common']['label']
-        lon, lat = each['package']['data']['properties']['location']['coordinates']
-        dxy = haversine((lat, lon), (my_lat, my_lon))
-        station_info.append({
-            'uuid': each['uuid'],
-            'name': name,
-            'lon': lon,
-            'lat': lat,
-            'distance': dxy
-        })
-    df = DataFrame(station_info).sort_values(by='distance')
-    # _next = data.get('next', None)
-    print(df)
+    Given a station, get it coordinates and then find
+    all cameras and calculate their distance to the station,
+    sort cameras by distance and print the table
+    """
+    api_token = cast(str, _get_key())
+    metadata = get_station_metadata(station)
+    cameras = get_all_cameras_with_metadata(api_token)
+    df = calculate_camera_distance_table((metadata['lng'], metadata['lat']), cameras)
+    print(df.head())
+    assert not df.empty, 'No cameras found for the given station'
 
-def test_build_virtual_station_station_search():
-    pass
 
-def test_build_virtual_station_end_to_end():
+@pytest.mark.parametrize("camera_id", WEBCOOS_CAMERAS)
+def test_build_virtual_station_station_search(camera_id: str):
+    """
+    Test that nearby stations can be found for a given camera.
+    """
+    api_token = cast(str, _get_key())
+    camera = get_single_camera_with_metadata(camera_id, api_token)
+    coordinates = camera['data']['properties']['location']['coordinates']
+    stations = get_nearby_stations(
+        longitude=coordinates[0],
+        latitude=coordinates[1],
+        distance=200
+    )
+    df = calculate_station_distance_table(coordinates, stations)
+    print(df.head())
+    assert not df.empty, 'No stations found for the given camera'
+
+
+@pytest.mark.parametrize("station", NWLON_STATIONS)
+def test_build_virtual_station_end_to_end_from_station(station: int):
+    """
+    Confirm that geo-lookup matching based on station coordinates works correctly.
+
+    - find cameras near station (N=1)
+    - For Portland ME NWLON station, there are 2 cameras with same coordinates nearby, 
+    with different views. May need to provide some user input in that case.
+    """
+    token = cast(str, _get_key())
+    metadata = get_station_metadata(station)
+    cameras = get_all_cameras_with_metadata(token)
+    df = calculate_camera_distance_table((metadata['lng'], metadata['lat']), cameras)
+    camera = df['name'].iloc[0]
+    print("Starting data sync...")
+    synchro = synch.synch(
+        station=station,
+        camera=camera,
+        data_product='water_level',
+        camera_product='one-minute-stills',
+        value='all',
+        time_start='202512170800',
+        time_end='202512171000',
+        interval=6,
+        cutoff=None,
+        sep_model=None,
+        token=token,
+        save_dir='tmp'
+    )
+    print("Completed image sync, starting to render movie...")
+    _ = synch.make_movie(synchro,camera,station)
+
+@pytest.mark.parametrize("camera_id", WEBCOOS_CAMERAS)
+def test_build_virtual_station_end_to_end_from_camera(camera_id: str):
     """
     Confirm that geo-lookup matching based on station coordinates works correctly.
 
     - find stations near camera (N>0)
-    - find cameras near station (N=1)
+    - handle case of no matches
+    - handle rendering with multiple identical sensors
+    - handle rendering with different types of sensors
     """
-    token = _get_key()  # Insert your WebCOOS API token here #
-    station = 8418150  # Portland, ME
-    camera = 'Camp Ellis Beach at Saco, ME - South view'
+    token = cast(str, _get_key())
+    metadata = get_single_camera_with_metadata(camera_id, token)
+    camera = metadata['data']['common']['label']
+    coordinates = metadata['data']['properties']['location']['coordinates']
+    stations = get_nearby_stations(
+        longitude=coordinates[0],
+        latitude=coordinates[1],
+        distance=200
+    )
+    df = calculate_station_distance_table(coordinates, stations)
+    station = df['uuid'].iloc[0]
     print("Starting data sync...")
     synchro = synch.synch(
         station=station,
