@@ -4,6 +4,8 @@ nwlon_webcoos_synchronizer/__pycache__/
 nwlon_webcoos_synchronizer/.ipynb_checkpoints/
 tests/__pycache__/
 .pytest_cache/
+demos/
+data/
 .DS_Store
 .envrc
 tmp/
