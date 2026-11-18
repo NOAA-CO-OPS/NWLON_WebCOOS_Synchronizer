@@ -236,15 +236,15 @@ def synch_local(station, camera, data_product, local_dir, value, time_start, tim
     datas = _synch_init_coops(station, data_product, value, time_start, time_end, interval, cutoff)
     
     # Download image for each data point #
-    datas['image'] = 0
+    datas['image'] = ''
     for i in range(len(datas)):
         time_start = _dt2datestr(datas['date_time'].iloc[i])
         time_end = _dt2datestr(datas['date_time'].iloc[i]+datetime.timedelta(minutes=1))
         filename = _get_local_image(local_dir, time_start)
         if filename:
-            datas['image'].iloc[i] = filename[0]
+            datas.loc[i, 'image'] = filename[0]
         else:
-            datas['image'].iloc[i] = ''
+            datas.loc[i, 'image'] = ''
     
     return datas
     
