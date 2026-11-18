@@ -102,40 +102,55 @@ def get_nearby_stations(
     return stations
 
 def calculate_camera_distance_table(
-    coordinates: tuple[float, float],
-    cameras: list[dict]
+    station_id: int,
+    api_token: str,
+    limit: int = 1
 ) -> DataFrame:
     """
-    Create a table of cameras sort by distance from the station"""
-    station_info = []
-    for each in cameras:
+    Create a table of cameras sort by distance from the station.
+    Have to load all cameras to know which is closest because we
+    only have GPS coordinates.
+    """
+    metadata = get_station_metadata(station_id)
+    coordinates = (metadata['lng'], metadata['lat'])
+    results = []
+    for each in get_all_cameras_with_metadata(api_token):
         name = each['data']['common']['label']
         camera_coords = each['package']['data']['properties']['location']['coordinates']
-        station_info.append({
+        results.append({
             'uuid': each['uuid'],
             'name': name,
-            'lon': camera_coords[0],
-            'lat': camera_coords[1],
+            'longitude': camera_coords[0],
+            'latitude': camera_coords[1],
             'distance': haversine(camera_coords, coordinates)
         })
-    return DataFrame(station_info).sort_values(by='distance')
+    return DataFrame(results).set_index('distance').sort_index().head(limit)
 
 def calculate_station_distance_table(
-    coordinates: tuple[float, float],
-    stations: dict
+    camera_id: str,
+    api_token: str,
+    limit: int = 1
 ) -> DataFrame:
     """
     Create a table of stations sort by distance from the given coordinates
     """
+    camera = get_single_camera_with_metadata(camera_id, api_token)
+    coordinates = camera['data']['properties']['location']['coordinates']
+    name = camera['data']['common']['label']
+    stations = get_nearby_stations(
+        longitude=coordinates[0],
+        latitude=coordinates[1],
+        distance=200
+    )
     station_info = []
     for feature in stations["features"]:
         station = feature["properties"]
-        dxy = haversine(coordinates, (station["longitude"], station["latitude"]))
         station_info.append({
             'uuid': station['id'],
             'name': station['name'],
             'lon': station["longitude"],
             'lat': station["latitude"],
-            'distance': dxy
+            'distance': haversine(coordinates, (station["longitude"], station["latitude"])),
+            'camera': name
         })
-    return DataFrame(station_info).sort_values(by='distance')
+    return DataFrame(station_info).set_index('distance').sort_index().head(limit)

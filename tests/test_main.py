@@ -7,17 +7,13 @@ from typing import cast
 import pytest
 import nwlon_webcoos_synchronizer as synch
 from nwlon_webcoos_synchronizer.search import (
-    get_station_metadata,
-    get_nearby_stations,
-    get_all_cameras_with_metadata,
-    get_single_camera_with_metadata,
     calculate_camera_distance_table,
     calculate_station_distance_table
 )
 
 warnings.filterwarnings('ignore')
 
-# Constants for test parameterization
+# Constants for search test parameterization
 NWLON_STATIONS = [
     8418150  # Portland ME
 ]
@@ -208,10 +204,8 @@ def test_build_virtual_station_camera_search(station: int):
     sort cameras by distance and print the table
     """
     api_token = cast(str, _get_key())
-    metadata = get_station_metadata(station)
-    cameras = get_all_cameras_with_metadata(api_token)
-    df = calculate_camera_distance_table((metadata['lng'], metadata['lat']), cameras)
-    print(df.head())
+    df = calculate_camera_distance_table(station, api_token, limit=1)
+    print(df)
     assert not df.empty, 'No cameras found for the given station'
 
 
@@ -221,15 +215,8 @@ def test_build_virtual_station_station_search(camera_id: str):
     Test that nearby stations can be found for a given camera.
     """
     api_token = cast(str, _get_key())
-    camera = get_single_camera_with_metadata(camera_id, api_token)
-    coordinates = camera['data']['properties']['location']['coordinates']
-    stations = get_nearby_stations(
-        longitude=coordinates[0],
-        latitude=coordinates[1],
-        distance=200
-    )
-    df = calculate_station_distance_table(coordinates, stations)
-    print(df.head())
+    df = calculate_station_distance_table(camera_id, api_token, limit=2)
+    print(df)
     assert not df.empty, 'No stations found for the given camera'
 
 
@@ -243,9 +230,7 @@ def test_build_virtual_station_end_to_end_from_station(station: int):
     with different views. May need to provide some user input in that case.
     """
     token = cast(str, _get_key())
-    metadata = get_station_metadata(station)
-    cameras = get_all_cameras_with_metadata(token)
-    df = calculate_camera_distance_table((metadata['lng'], metadata['lat']), cameras)
+    df = calculate_camera_distance_table(station, token)
     camera = df['name'].iloc[0]
     print("Starting data sync...")
     synchro = synch.synch(
@@ -276,16 +261,9 @@ def test_build_virtual_station_end_to_end_from_camera(camera_id: str):
     - handle rendering with different types of sensors
     """
     token = cast(str, _get_key())
-    metadata = get_single_camera_with_metadata(camera_id, token)
-    camera = metadata['data']['common']['label']
-    coordinates = metadata['data']['properties']['location']['coordinates']
-    stations = get_nearby_stations(
-        longitude=coordinates[0],
-        latitude=coordinates[1],
-        distance=200
-    )
-    df = calculate_station_distance_table(coordinates, stations)
+    df = calculate_station_distance_table(camera_id, token)
     station = df['uuid'].iloc[0]
+    camera = df['camera'].iloc[0]
     print("Starting data sync...")
     synchro = synch.synch(
         station=station,
