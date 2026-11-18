@@ -11,6 +11,8 @@ import random
 import re
 from sklearn.neural_network import MLPClassifier
 import warnings
+from erddapy import ERDDAP
+
 
 import moviepy
 if moviepy.__version__ == '1.0.3':
@@ -86,7 +88,20 @@ def get_inventory(camera, product, token):
     return api.get_inventory(camera, product)
 
 
-def synch(station, camera, data_product, camera_product, value, time_start, time_end, interval, cutoff, sep_model, token, save_dir):
+def synch(station, 
+          camera, 
+          data_product, 
+          camera_product, 
+          value, 
+          time_start, 
+          time_end, 
+          interval, 
+          cutoff, 
+          sep_model, 
+          token, 
+          save_dir,
+          erddap_link = "", 
+          erddap_dataset_id = "", ):
     '''
     Function to synchronize webcamera imagery frames with CO-OPS data.
     
@@ -119,6 +134,10 @@ def synch(station, camera, data_product, camera_product, value, time_start, time
         WebCOOS API token.
     save_dir : str
         The directory to which to save frames and the final movie.
+    erddap_link : str
+        URL to ERDDAP page (e.g. "https://data.neracoos.org/erddap/")
+    erddap_dataset_id: str
+        dataset id for specific data source to look for (e.g. ONSET_gloucester_hourly_water_level)
         
     Returns
     _ _ _ _ _ 
@@ -128,9 +147,13 @@ def synch(station, camera, data_product, camera_product, value, time_start, time
     _check_date_format(time_start, 'start', token)
     _check_date_format(time_end, 'end', token)
     _check_date_range(camera, camera_product, time_start, time_end, token)
-    
-    datas = _synch_init(station, data_product, value, time_start, time_end, interval, cutoff)
-        
+
+    if station !=0:
+        # calling tide guage from coops api
+        datas = _synch_init_coops(station, data_product, value, time_start, time_end, interval, cutoff)
+    else:
+        datas = _synch_init_erdap(erddap_link, erddap_dataset_id, data_product, value, time_start, time_end, interval, cutoff)
+
     # Download image for each data point #
     datas['image'] = ''
     for i in range(len(datas)):
@@ -207,7 +230,7 @@ def synch_local(station, camera, data_product, local_dir, value, time_start, tim
     
     _check_local_dir(local_dir)
     
-    datas = _synch_init(station, data_product, value, time_start, time_end, interval, cutoff)
+    datas = _synch_init_coops(station, data_product, value, time_start, time_end, interval, cutoff)
     
     # Download image for each data point #
     datas['image'] = 0
@@ -254,7 +277,7 @@ def make_movie(datas, camera, station, fps=4, view_num=None):
     return video_file
 
 
-def _synch_init(station, data_product, value, time_start, time_end, interval, cutoff):
+def _synch_init_coops(station, data_product, value, time_start, time_end, interval, cutoff):
     # First get all the data of the requested product for the requested time period #
     data = _call_CoopsApi(station, data_product, time_start, time_end)
     data = data[data['date_time'] >= _datestr2dt(time_start)]
@@ -283,7 +306,56 @@ def _synch_init(station, data_product, value, time_start, time_end, interval, cu
         datas = datas.iloc[0:cutoff]
     else:
         raise ValueError("value argument must be either 'all' or a float/integer value.")
-    return datas    
+    return datas   
+
+def _synch_init_erdap(erddap_link, erddap_dataset_id, data_product, value, time_start, time_end, interval, cutoff):
+    # convert timestamps to appropriate string format for ERDDAP
+    time_start_datetime = datetime.datetime.strptime(time_start, "%Y%m%d%H%M")
+    time_start = time_start_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    time_end_datetime = datetime.datetime.strptime(time_end, "%Y%m%d%H%M")
+    time_end = time_end_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
+    
+    # get data for specified erddap dataset at specified server
+    # assumes the user knows the dataset id and only works for one datasets variable names
+    e = ERDDAP(
+        server=erddap_link,    
+        protocol="tabledap",
+        )
+    e.dataset_id = erddap_dataset_id
+    e.constraints = {'time>=':time_start,
+                     'time<=':time_end}
+    e.variables=['time',data_product]
+    data = e.to_pandas()
+
+    # convert time column to datetime
+    data['time (UTC)'] = pd.to_datetime(data['time (UTC)'])
+
+    # Interpolate to the desired data interval #
+    data_dates = pd.date_range(time_start_datetime, time_end_datetime, freq=str(interval)+'min')      
+    datai_v = data["NAVD_meters (m)"]
+    datai_v = np.interp(data_dates, data['time (UTC)'], datai_v)
+    datai = pd.DataFrame({'date_time': data_dates, 'value': datai_v})
+    data = datai
+
+    # Determine the data points to get images for based on the value and cutoff arguements #
+    if value == 'all':
+        # Get images for all of the observations #
+        datas = data.dropna()
+    elif isinstance(value, str) and value != 'all':
+        raise ValueError("value argument must be either 'all' or a float/integer value.")
+    elif isinstance(value, int) or isinstance(value, float):
+        # Get cutoff images for observations equal to val (within a tolerance) #
+        tol = 0.01
+        datas = data
+        datas = datas[datas['value'] >= value-tol]
+        datas = datas[datas['value'] <= value+tol]
+        datas = datas.sample(frac=1)  # Shuffle the rows so various times are returned #
+        datas = datas.iloc[0:cutoff]
+    else:
+        raise ValueError("value argument must be either 'all' or a float/integer value.")
+
+    return datas 
 
     
 def _call_CoopsApi(station, data_product, time_start, time_end):
