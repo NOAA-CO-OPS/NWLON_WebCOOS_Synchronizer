@@ -1,5 +1,7 @@
 import nwlon_webcoos_synchronizer as nws
-token = ''  # Insert your WebCOOS API token here #
+import os
+
+token = os.getenv('API_KEY')  # Insert your WebCOOS API token here #
 station = 8665530
 camera = 'North Inlet-Winyah Bay  National Estuarine Research Reserve Dock, Georgetown, SC'
 erddap_link = "https://oceanwatch.pfeg.noaa.gov/noaa_wide/erddap/"
