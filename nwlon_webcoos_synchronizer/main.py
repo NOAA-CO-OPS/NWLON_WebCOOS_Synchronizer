@@ -100,7 +100,7 @@ def synch(station,
           sep_model, 
           token, 
           save_dir,
-          erddap_link = "", 
+          erddap_link = "https://oceanwatch.pfeg.noaa.gov/noaa_wide/erddap/", 
           erddap_dataset_id = "", ):
     '''
     Function to synchronize webcamera imagery frames with CO-OPS data.
@@ -112,7 +112,9 @@ def synch(station,
     camera : str
         The name of the camera from which to use imagery.
     data_product : str
-        The CO-OPS data product to use from station (e.g. water_level).
+        If using CO-OPS water level station, the CO-OPS data product to use from station (e.g. water_level).
+        If using ERDDAP sensor, the data product to use. If "", then allows to user to select variable name. 
+            Don't include units
     camera_product : str
         The name of the imagery product to use from camera.
     value : str or float
@@ -135,7 +137,8 @@ def synch(station,
     save_dir : str
         The directory to which to save frames and the final movie.
     erddap_link : str
-        URL to ERDDAP page (e.g. "https://data.neracoos.org/erddap/")
+        URL to ERDDAP page (e.g. "https://oceanwatch.pfeg.noaa.gov/noaa_wide/erddap/")
+        Default: "https://oceanwatch.pfeg.noaa.gov/noaa_wide/erddap/" 
     erddap_dataset_id: str
         dataset id for specific data source to look for (e.g. ONSET_gloucester_hourly_water_level)
         
@@ -325,15 +328,30 @@ def _synch_init_erdap(erddap_link, erddap_dataset_id, data_product, value, time_
     e.dataset_id = erddap_dataset_id
     e.constraints = {'time>=':time_start,
                      'time<=':time_end}
+    if data_product == "" or not data_product in list(e._get_variables().keys()):
+        print("Enter desired water level variable from list:")
+        print(list(e._get_variables().keys()))
+        # strip out leading and trailing quotations on strings
+        data_product = input().strip("'").strip("'")
+
+        # check if data product is in the variables in dataset
+        if data_product in list(e._get_variables().keys()):
+            pass
+        else:
+            print("Entered water level variable does not exist. Try again") 
+            # strip out leading and trailing quotations on strings
+            data_product = input().strip("'").strip("'")
+            assert data_product in list(e._get_variables().keys()), "Variable not found."
     e.variables=['time',data_product]
     data = e.to_pandas()
+    units = e._get_variables()[data_product]['units']
 
     # convert time column to datetime
     data['time (UTC)'] = pd.to_datetime(data['time (UTC)'])
 
     # Interpolate to the desired data interval #
     data_dates = pd.date_range(time_start_datetime, time_end_datetime, freq=str(interval)+'min')      
-    datai_v = data["NAVD_meters (m)"]
+    datai_v = data[f"{data_product} ({units})"]
     datai_v = np.interp(data_dates, data['time (UTC)'], datai_v)
     datai = pd.DataFrame({'date_time': data_dates, 'value': datai_v})
     data = datai
