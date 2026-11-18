@@ -1,25 +1,25 @@
 """
 Tests related to specifics of the WebCOOS API, which is being deprecated
 """
-from tests.test_main import _get_key
-from nwlon_webcoos_synchronizer.main import _save_frames, synch
+import os
+from glob import glob
 
+import pytest
+from tests.test_main import _get_key
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from pywebcoos import API
+from time import time
 
-# 1. Define your batch of (URL, local_filename) pairs
-DOWNLOAD_BATCH = [
-    ("https://example.com", "downloads/file1.pdf"),
-    ("https://example.com", "downloads/file2.zip"),
-    ("https://example.com", "downloads/image.png"),
-]
 
 
 def create_session(max_workers: int) -> requests.Session:
-    """Creates a thread-safe requests Session with retries and connection pooling."""
+    """
+    Creates a thread-safe requests Session with retries and connection pooling.
+    """
     session = requests.Session()
 
     # Configure automatic retries for transient server errors
@@ -78,36 +78,61 @@ def run_batch_download(batch: list[tuple[str, str]], max_workers: int = 8):
             print(f"[{status}] {url} -> {message}")
 
 
+def get_download_manifest(
+    api: API,
+    camera_name: str,
+    product_name: str,
+    start: str,
+    stop: str,
+    interval: int,
+    feed_name: str = 'raw-video-data'
+) -> list[dict]:
+    """
+    The WebCOOS client build the manifest and does download in one step,
+    so we need to provide a break point after checking inputs and before
+    initiating the actual download so that we can provide the manifest to
+    our async batch download.
+    """
+    _start = api._local2ISO(start, camera_name)
+    _stop = api._local2ISO(stop, camera_name)
+    feeds = api._get_camera_feeds(camera_name, api.assets_json)
+    products = api._get_camera_products(feed_name, feeds, camera_name)
+    service_slug, _ = api._get_service_slug(product_name, products, feed_name, camera_name, api.api_base_url, api.HEADERS)
+    return api._get_elements(service_slug, _start, _stop, interval, api.api_base_url, api.HEADERS)
 
-def test_webcoos_downloads_serial():
+
+@pytest.mark.parametrize("max_workers", [4, 8])
+def test_webcoos_api_download_parallel(max_workers: int):
     """
-    Test serial vs. parallel download speed
+    Perform the same download process in serial and parallel to compare performance.
     """
+    _start = time()
     token = _get_key()
-    station = 8665530
-    camera = 'Charleston Harbor, SC'
-    source = synch(
-        station=8665530,
-        camera='Charleston Harbor, SC',
-        data_product='water_level',
-        camera_product='one-minute-stills',
-        value='all',
-        time_start='202401011000',
-        time_end='202401011005',
+    api = API(token=token)
+    filtered_elements = get_download_manifest(
+        api=api,
+        camera_name='Charleston Harbor, SC',
+        product_name='one-minute-stills',
+        start='202401011000',
+        stop='202401011005',
         interval=1,
-        cutoff=None,
-        sep_model=None,
-        token=token,
-        save_dir='tmp'
+        feed_name='raw-video-data'
     )
-    datas_mov = _save_frames(source, camera, station, view_num=None)
-    print(datas_mov)
-
-
-def test_webcoos_downloads_parallel():
-    """
-    Test parallel download speed
-    """
-    run_batch_download(DOWNLOAD_BATCH, max_workers=8)
-
-
+    urls = [element['data']['properties']['url'] for element in filtered_elements]
+    manifest = [(url, f"tmp/{url.split('/')[-1]}") for url in urls]
+    print(f"Preprocessing took {time() - _start:.2f} seconds")
+    _start = time()
+    # doesn't write images if they already exist, but does download them anyway
+    _ = api._download_imagery(filtered_elements, save_dir="tmp")
+    for file in glob("tmp/*.jpg"):
+        os.remove(file)
+    serial = time() - _start
+    print(f"Serial download took {serial:.2f} seconds")
+    _start = time()
+    run_batch_download(manifest, max_workers=max_workers)
+    parallel = time() - _start
+    print(f"Parallel download took {parallel:.2f} seconds")
+    for file in glob("tmp/*.jpg"):
+        os.remove(file)
+    print(f"Files were cleaned up between downloads.")
+    assert parallel < serial, "Parallel download should be faster than serial download"
