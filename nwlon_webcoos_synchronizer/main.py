@@ -327,13 +327,14 @@ def _synch_init_erdap(erddap_link, erddap_dataset_id, data_product, value, time_
                      'time<=':time_end}
     e.variables=['time',data_product]
     data = e.to_pandas()
+    print(data)
 
     # convert time column to datetime
     data['time (UTC)'] = pd.to_datetime(data['time (UTC)'])
 
     # Interpolate to the desired data interval #
     data_dates = pd.date_range(time_start_datetime, time_end_datetime, freq=str(interval)+'min')      
-    datai_v = data[data_product]
+    datai_v = data[data_product + ' (m)']
     datai_v = np.interp(data_dates, data['time (UTC)'], datai_v)
     datai = pd.DataFrame({'date_time': data_dates, 'value': datai_v})
     data = datai
