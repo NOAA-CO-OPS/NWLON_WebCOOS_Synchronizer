@@ -13,6 +13,8 @@ from sklearn.neural_network import MLPClassifier
 import warnings
 import click
 from erddapy import ERDDAP
+from timezonefinder import TimezoneFinder
+from zoneinfo import ZoneInfo
 
 import moviepy
 if moviepy.__version__ == '1.0.3':
@@ -312,13 +314,6 @@ def _synch_init_coops(station, data_product, value, time_start, time_end, interv
     return datas   
 
 def _synch_init_erdap(erddap_link, erddap_dataset_id, data_product, value, time_start, time_end, interval, cutoff):
-    # convert timestamps to appropriate string format for ERDDAP
-    time_start_datetime = datetime.datetime.strptime(time_start, "%Y%m%d%H%M")
-    time_start = time_start_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    time_end_datetime = datetime.datetime.strptime(time_end, "%Y%m%d%H%M")
-    time_end = time_end_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
-    
     # get data for specified erddap dataset at specified server
     # assumes the user knows the dataset id 
     e = ERDDAP(
@@ -326,8 +321,31 @@ def _synch_init_erdap(erddap_link, erddap_dataset_id, data_product, value, time_
         protocol="tabledap",
         )
     e.dataset_id = erddap_dataset_id
-    e.constraints = {'time>=':time_start,
-                     'time<=':time_end}
+    e_temp = e
+
+    # get a location of the sensor to find local timezone
+    e_temp.variables = ['latitude', 'longitude']
+    location_datas = e_temp.to_pandas()
+
+    latitude = location_datas['latitude (degrees_north)'].iloc[0]
+    longitude = location_datas['longitude (degrees_east)'].iloc[0]
+    timezone = _time_zone_with_lat_lon(latitude, longitude)
+    
+    # convert timestamps to appropriate string format for ERDDAP
+    # ensure datetime has the appropriate local timezone for water level station
+    time_start_datetime_local = datetime.datetime.strptime(time_start, "%Y%m%d%H%M").replace(tzinfo=ZoneInfo(timezone))
+    # convert timezone from local time to UTC
+    time_start_datetime_utc = time_start_datetime_local.astimezone(datetime.timezone.utc)
+    time_start_utc = time_start_datetime_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    time_end_datetime_local = datetime.datetime.strptime(time_end, "%Y%m%d%H%M").replace(tzinfo=ZoneInfo(timezone))
+    # convert timezone from local time to UTC
+    time_end_datetime_utc = time_end_datetime_local.astimezone(datetime.timezone.utc)
+    time_end_utc = time_end_datetime_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    
+    
+    e.constraints = {'time>=':time_start_utc,
+                     'time<=':time_end_utc}
     # if the user didn't enter a data product or the data product is not available
     # in the dataset gives the users two chances to select value
     if data_product == "" or not data_product in list(e._get_variables().keys()):
@@ -355,12 +373,13 @@ def _synch_init_erdap(erddap_link, erddap_dataset_id, data_product, value, time_
     units = e._get_variables()[data_product]['units']
 
     # convert time column to datetime
-    data['time (UTC)'] = pd.to_datetime(data['time (UTC)'])
+    data['time (UTC)'] = pd.to_datetime(data['time (UTC)'], utc = True)
+    data[f'time {timezone}'] = data['time (UTC)'].dt.tz_convert(timezone)
 
     # Interpolate to the desired data interval #
-    data_dates = pd.date_range(time_start_datetime, time_end_datetime, freq=str(interval)+'min')      
+    data_dates = pd.date_range(time_start_datetime_local, time_end_datetime_local, freq=str(interval)+'min')      
     datai_v = data[f"{data_product} ({units})"]
-    datai_v = np.interp(data_dates, data['time (UTC)'], datai_v)
+    datai_v = np.interp(data_dates, data[f'time {timezone}'], datai_v)
     datai = pd.DataFrame({'date_time': data_dates, 'value': datai_v})
     data = datai
 
@@ -382,6 +401,15 @@ def _synch_init_erdap(erddap_link, erddap_dataset_id, data_product, value, time_
         raise ValueError("value argument must be either 'all' or a float/integer value.")
 
     return datas 
+
+def _time_zone_with_lat_lon(latitude, longitude):
+    # Initialize the finder 
+    tf = TimezoneFinder()
+
+    # Get the IANA timezone string (note: lng comes first)
+    tz_name = tf.timezone_at(lng=longitude, lat=latitude)
+
+    return tz_name
 
     
 def _call_CoopsApi(station, data_product, time_start, time_end):
