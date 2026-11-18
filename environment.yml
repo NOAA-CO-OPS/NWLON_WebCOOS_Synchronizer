@@ -13,4 +13,5 @@ dependencies:
   - pytest
   - pip:
     - moviepy
+    - erddapy
     - pywebcoos @ git+https://github.com/WebCOOS/py-webcoos-client.git
