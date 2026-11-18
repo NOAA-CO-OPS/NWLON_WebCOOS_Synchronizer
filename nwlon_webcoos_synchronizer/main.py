@@ -320,7 +320,7 @@ def _synch_init_erdap(erddap_link, erddap_dataset_id, data_product, value, time_
     time_end = time_end_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
     
     # get data for specified erddap dataset at specified server
-    # assumes the user knows the dataset id and only works for one datasets variable names
+    # assumes the user knows the dataset id 
     e = ERDDAP(
         server=erddap_link,    
         protocol="tabledap",
@@ -328,22 +328,30 @@ def _synch_init_erdap(erddap_link, erddap_dataset_id, data_product, value, time_
     e.dataset_id = erddap_dataset_id
     e.constraints = {'time>=':time_start,
                      'time<=':time_end}
+    # if the user didn't enter a data product or the data product is not available
+    # in the dataset gives the users two chances to select value
     if data_product == "" or not data_product in list(e._get_variables().keys()):
         print("Enter desired water level variable from list:")
         print(list(e._get_variables().keys()))
+        # allow user input for water level variable
+        data_product = input()
         # strip out leading and trailing quotations on strings
-        data_product = input().strip("'").strip("'")
+        data_product = data_product.strip("'").strip("'")
 
         # check if data product is in the variables in dataset
         if data_product in list(e._get_variables().keys()):
             pass
         else:
             print("Entered water level variable does not exist. Try again") 
+            # allow user input for water level variable
+            data_product = input()
             # strip out leading and trailing quotations on strings
-            data_product = input().strip("'").strip("'")
+            data_product = data_product.strip("'").strip("'")
             assert data_product in list(e._get_variables().keys()), "Variable not found."
     e.variables=['time',data_product]
     data = e.to_pandas()
+ 
+    # get units on the variable. This is appended to variable name in DataFrame
     units = e._get_variables()[data_product]['units']
 
     # convert time column to datetime
