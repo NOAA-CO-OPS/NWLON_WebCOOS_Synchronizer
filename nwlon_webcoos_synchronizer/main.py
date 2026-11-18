@@ -327,7 +327,6 @@ def _synch_init_erdap(erddap_link, erddap_dataset_id, data_product, value, time_
                      'time<=':time_end}
     e.variables=['time',data_product]
     data = e.to_pandas()
-    print(data)
 
     # convert time column to datetime
     data['time (UTC)'] = pd.to_datetime(data['time (UTC)'])
