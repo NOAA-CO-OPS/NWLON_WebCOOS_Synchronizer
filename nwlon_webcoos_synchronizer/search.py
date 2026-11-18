@@ -9,7 +9,7 @@ import requests
 from pandas import DataFrame
 
 
-def haversine(coord1, coord2):
+def haversine(coord1: tuple[float, float], coord2: tuple[float, float]) -> float:
     """
     Calculate the great-circle distance between two points
     on the Earth (specified in decimal degrees: (lat, lon)).
@@ -32,7 +32,7 @@ def haversine(coord1, coord2):
     return distance
 
 
-def get_station_metadata(station: int):
+def get_station_metadata(station: int) -> dict:
     """
     Use a station ID to retriece metadata
     """
@@ -44,7 +44,7 @@ def get_station_metadata(station: int):
         raise ValueError(f"No metadata found for station {station}")
     return metadata[0]
 
-def get_all_cameras_with_metadata(api_token: str):
+def get_all_cameras_with_metadata(api_token: str) -> list[dict]:
     """
     Get all camera metadata from WebCOOS API
     """
@@ -56,7 +56,7 @@ def get_all_cameras_with_metadata(api_token: str):
     data = response.json()
     return data.get('results', [])
 
-def get_single_camera_with_metadata(uuid: str, api_token: str):
+def get_single_camera_with_metadata(uuid: str, api_token: str) -> dict:
     """
     If you know the camera ID, get the matching metadata
     """
@@ -81,10 +81,9 @@ def get_nearby_stations(
         "https://mapservices.weather.noaa.gov/static/rest/services/"
         "NOS_Observations/CO_OPS_Stations/FeatureServer/0/query"
     )
-
     params = {
         "where": "affil LIKE '%NWLON%'",
-        "geometry": f"{longitude},{latitude}",  # Rockland, ME: longitude, latitude
+        "geometry": f"{longitude},{latitude}",
         "geometryType": "esriGeometryPoint",
         "inSR": 4326,
         "spatialRel": "esriSpatialRelIntersects",
@@ -95,10 +94,8 @@ def get_nearby_stations(
         "outSR": 4326,
         "f": "geojson",
     }
-
     response = requests.get(url, params=params, timeout=30)
     stations = response.json()
-
     # ArcGIS can return application errors with HTTP status 200.
     if "error" in stations:
         raise RuntimeError(f"ArcGIS query failed: {stations['error']}")
