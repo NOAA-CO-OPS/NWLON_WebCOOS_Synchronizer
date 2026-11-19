@@ -481,9 +481,9 @@ def _save_frames(datas, camera, station, view_num):
     '''
     datas['frame'] = ''
     
-    if datas['date_time'].diff().dropna().nunique() == 1:  # If datas is evenly spaced in time, then val='all' and we want a timeseries.
+    if datas['value'].max() - datas['value'].min() > 0.05:  # If the data has > 5 cm range, assume value = 'all' and the user wants a timeseries #
         ts = True
-    else:  # If datas is not evenly spaced in time, then user wants images at a certain value, and we want to show that value #
+    else:  # If data has <=5 cm range, then assume user wants images at a certain value, and we want to show that value #
         ts = False 
         
     lens = np.array([len(datas['image'].iloc[i]) for i in range(len(datas))])
