@@ -228,6 +228,10 @@ class CoopsApi:
  #               dCount += 1
  #           aDict = temp
 
+        # make metadata dictionary
+        sensor_metadata = {'sensor_latitude': float(content['metadata']['lat']), 
+                           'sensor_longitude': float(content['metadata']['lon'])}
+
             
-        return output, errorsFound
+        return output, errorsFound, sensor_metadata
         

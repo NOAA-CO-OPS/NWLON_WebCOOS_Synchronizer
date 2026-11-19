@@ -15,10 +15,11 @@ import click
 from erddapy import ERDDAP
 from timezonefinder import TimezoneFinder
 from zoneinfo import ZoneInfo
-import cartopy
+from cartopy.io.img_tiles import OSM
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import contextily as ctx
+import numpy as np
 
 import moviepy
 if moviepy.__version__ == '1.0.3':
@@ -167,7 +168,7 @@ def synch(dataset_id,
 
     if NWLON:
         # calling tide guage from coops api
-        datas = _synch_init_coops(dataset_id, data_product, value, time_start, time_end, interval, cutoff)
+        datas, sensor_metadata = _synch_init_coops(dataset_id, data_product, value, time_start, time_end, interval, cutoff)
     else:
         # gete data from erddap
         datas, sensor_metadata = _synch_init_erddap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff)
@@ -266,7 +267,7 @@ def synch_local(dataset_id, camera, data_product, local_dir, value, time_start, 
 
     if NWLON:
         # calling tide guage from coops api
-        datas = _synch_init_coops(dataset_id, data_product, value, time_start, time_end, interval, cutoff)
+        datas, sensor_metadata = _synch_init_coops(dataset_id, data_product, value, time_start, time_end, interval, cutoff)
     else:
         # gete data from erddap
         datas, sensor_metadata = _synch_init_erddap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff)
@@ -282,7 +283,7 @@ def synch_local(dataset_id, camera, data_product, local_dir, value, time_start, 
         else:
             datas.loc[i, 'image'] = ''
     
-    return datas
+    return datas, sensor_metadata
     
     
 def make_movie(datas, metadata, camera, dataset_id, fps=4, view_num=None):
@@ -321,7 +322,7 @@ def make_movie(datas, metadata, camera, dataset_id, fps=4, view_num=None):
 
 def _synch_init_coops(dataset_id, data_product, value, time_start, time_end, interval, cutoff):
     # First get all the data of the requested product for the requested time period #
-    data = _call_CoopsApi(dataset_id, data_product, time_start, time_end)
+    data, metadata = _call_CoopsApi(dataset_id, data_product, time_start, time_end)
     data = data[data['date_time'] >= _datestr2dt(time_start)]
     data = data[data['date_time'] <= _datestr2dt(time_end)]
     
@@ -348,7 +349,7 @@ def _synch_init_coops(dataset_id, data_product, value, time_start, time_end, int
         datas = datas.iloc[0:cutoff]
     else:
         raise ValueError("value argument must be either 'all' or a float/integer value.")
-    return datas   
+    return datas, metadata   
 
 def _synch_init_erddap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff):
     # get data for specified erddap dataset at specified server
@@ -458,8 +459,8 @@ def _call_CoopsApi(station, data_product, time_start, time_end):
     coopsapi = CoopsApi()
     start_date = _datestr2dt(time_start)
     end_date = _datestr2dt(time_end)
-    [data, data_errors] = coopsapi.get_data(str(station), [start_date, end_date], product=data_product, datum='MHHW', timeZone='lst_ldt')
-    return data
+    [data, data_errors, metadata] = coopsapi.get_data(str(station), [start_date, end_date], product=data_product, datum='MHHW', timeZone='lst_ldt')
+    return data, metadata
 
 
 def _get_flood_thresh(station):
@@ -632,45 +633,55 @@ def _save_frames(datas, metadata, camera, dataset_id, view_num):
         sensor_lon = metadata['sensor_longitude']
         sensor_lat = metadata['sensor_latitude']
         ax_map.scatter(sensor_lon, sensor_lat, 
-                color='red',
+                color='cornflowerblue',
                 s=50,
                 label = "sensor",
+                marker = "*",
                 transform=ccrs.PlateCarree())
         ax_map.scatter(camera_lon, camera_lat, 
-                        color='blue',
+                        color='mediumorchid',
                         s=50,
                         label = "camera",
+                        marker = "*",
                         transform=ccrs.PlateCarree())
         ax_map.legend()
             
-        # Compute padded bounds
+        
+        # distance between points
         lat_range = abs(sensor_lat - camera_lat)
         lon_range = abs(sensor_lon - camera_lon)
-        pad_fraction = 0.2
-        lat_pad = max(lat_range * pad_fraction, 0.05)
-        lon_pad = max(lon_range * pad_fraction, 0.05)
-    
-        extent = [
-                min(camera_lon, sensor_lon) - lon_pad,
-                max(camera_lon, sensor_lon) + lon_pad,
-                min(camera_lat, sensor_lat) - lat_pad,
-                max(camera_lat, sensor_lat) + lat_pad,
-            ]
 
-        # ax_map.set_extent(extent, crs=ccrs.PlateCarree())
+        # minimum padding in degrees
+        pad = 0.05
+
+        # center between points
+        center_lat = np.mean([camera_lat, sensor_lat])
+        center_lon = np.mean([camera_lon, sensor_lon])
+
+        # half-width required to contain both points
+        half_size = max(lat_range, lon_range) / 2.0 + pad
+
+        # square extent
+        extent = [
+            center_lon - half_size,  # xmin
+            center_lon + half_size,  # xmax
+            center_lat - half_size,  # ymin
+            center_lat + half_size,  # ymax
+        ]
+
+
+        ax_map.set_extent(extent, crs=ccrs.PlateCarree())
 
         # Optional map features
-        ax_map.add_feature(cfeature.COASTLINE)
-        ax_map.add_feature(cfeature.BORDERS, linestyle=':')
-        ax_map.add_feature(cfeature.STATES, linewidth=0.5)
+        # ax_map.add_feature(cfeature.COASTLINE)
+        # ax_map.add_feature(cfeature.BORDERS, linestyle=':')
+        # ax_map.add_feature(cfeature.STATES, linewidth=0.5)
         
-        # ctx.add_basemap(
-        #     ax_map,
-        #     source=ctx.providers.Esri.WorldImagery, zoom = 15, attribution = False
-        # )
-
-
         
+        # Add OSM tiles (includes labels)
+        osm = OSM()
+        ax_map.add_image(osm, 14)
+
         # Plot the NWS flood threshold levels on the data axis (only for NWLON data) #
         mhhw = 0
         if ax_data.get_ylim()[0] < mhhw < ax_data.get_ylim()[1]:  # Plot the mhhw level if the data covers it #

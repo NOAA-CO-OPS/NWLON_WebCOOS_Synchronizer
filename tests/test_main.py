@@ -153,7 +153,7 @@ def test_synch_value_equals_float():
 
 
 def test_synch_local():
-    synchro = synch.synch_local(dataset_id=8774230, 
+    synchro, sensor_metadata = synch.synch_local(dataset_id=8774230, 
                                 camera='Test camera', 
                                 data_product='water_level', 
                                 local_dir='data/images', 
