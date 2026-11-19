@@ -75,7 +75,7 @@ def test_invalid_local_file_extension_raises_synch_local_exception():
     with open('data/images/202401011200.txt', 'w'):
         pass
     with pytest.raises(ValueError, match="At least one file in the image directory does not have a png, jpg, or tif extension."):
-        synch.synch_local(station=8774230, camera='Test camera', data_product='water_level', local_dir='data/images', 
+        synch.synch_local(dataset_id=8774230, camera='Test camera', data_product='water_level', local_dir='data/images', 
                           value='all', time_start='202406201130', time_end='202406201200', interval=6, cutoff=None)
     os.remove('data/images/202401011200.txt')
     
@@ -84,7 +84,7 @@ def test_invalid_local_file_name_raises_synch_local_exception():
     with open('data/images/BadNameFormat.jpg', 'w'):
         pass
     with pytest.raises(ValueError, match="At least one file in the image directory is not named with the format yyyymmddHHMM.png/jpg/tif."):
-        synch.synch_local(station=8774230, camera='Test camera', data_product='water_level', local_dir='data/images', 
+        synch.synch_local(dataset_id=8774230, camera='Test camera', data_product='water_level', local_dir='data/images', 
                           value='all', time_start='202406201130', time_end='202406201200', interval=6, cutoff=None)
     os.remove('data/images/BadNameFormat.jpg')
 
@@ -153,7 +153,7 @@ def test_synch_value_equals_float():
 
 
 def test_synch_local():
-    synchro = synch.synch_local(station=8774230, 
+    synchro = synch.synch_local(dataset_id=8774230, 
                                 camera='Test camera', 
                                 data_product='water_level', 
                                 local_dir='data/images', 
@@ -179,7 +179,7 @@ def test_make_movie():
                           sep_model=None,        
                           token=key,             
                           save_dir='.')
-    synch.make_movie(synchro, camera='Charleston Harbor, SC', station=8665530)
+    synch.make_movie(synchro, camera='Charleston Harbor, SC', dataset_id=8665530)
     os.remove('nwlon_charleston-2024-01-01-150053Z.jpg')
     os.remove('nwlon_charleston-2024-01-01-150152Z.jpg')
     os.remove('nwlon_charleston-2024-01-01-150253Z.jpg')
