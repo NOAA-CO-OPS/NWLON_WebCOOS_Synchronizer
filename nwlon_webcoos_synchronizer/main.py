@@ -566,16 +566,16 @@ def _save_frames(datas, camera, dataset_id, view_num):
     except ValueError:
         NWLON = False
         
-    datas = datas[datas['image'] != ''].reset_index(drop=True)  # Drop missing image rows 
+    datas['is_missing'] = datas['image'] == ''
+    datas['image'] = datas['image'].replace('', np.nan).ffill()
+    datas = datas.dropna(subset=['image']).reset_index(drop=True)
+
     datas['frame'] = ''
     
     if datas['value'].max() - datas['value'].min() > 0.05:  # If the data has > 5 cm range, assume value = 'all' and the user wants a timeseries #
         ts = True
     else:  # If data has <=5 cm range, then assume user wants images at a certain value, and we want to show that value #
-        ts = False 
-        
-    lens = np.array([len(datas['image'].iloc[i]) for i in range(len(datas))])
-    datas = datas[lens > 0]                     
+        ts = False                   
                      
     if view_num is not None:
         ii = np.where(datas['view'] == view_num)[0]
@@ -635,9 +635,12 @@ def _save_frames(datas, camera, dataset_id, view_num):
                 ax_data.plot(ax_data.get_xlim(), [major, major], 'm--')
                 ax_data.text(ax_data.get_xlim()[0], major, 'Major flooding', color='m', fontsize=12)
 
-        # Plot image on the image axis #          
         im = plt.imread(datas['image'].iloc[i])
-        ax_img.imshow(im)
+        # Apply semi-transparency if the frame is a forward-filled placeholder
+        if datas['is_missing'].iloc[i]:
+            ax_img.imshow(im, alpha=0.5)
+        else:
+            ax_img.imshow(im)
 
         # Save the frame #
         savename = datas['image'].iloc[i] + '_frame_'+str(i)+'.png'            
