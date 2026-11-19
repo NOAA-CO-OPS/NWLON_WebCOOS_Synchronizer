@@ -90,7 +90,7 @@ def get_inventory(camera, product, token):
     return api.get_inventory(camera, product)
 
 
-def synch(station, 
+def synch(dataset_id, 
           camera, 
           data_product, 
           camera_product, 
@@ -103,14 +103,15 @@ def synch(station,
           token, 
           save_dir,
           erddap_link = "https://oceanwatch.pfeg.noaa.gov/noaa_wide/erddap/", 
-          erddap_dataset_id = "", ):
+           ):
     '''
     Function to synchronize webcamera imagery frames with CO-OPS data.
     
     Parameters
     _ _ _ _ _ 
-    station : int
-        The NWLON station ID from which to use data.
+    dataset_id : int or str
+        If int --> the NWLON station ID from which to use data
+        If str --> dataset id for ERDDAP data source to look for (e.g. ONSET_gloucester_hourly_water_level)
     camera : str
         The name of the camera from which to use imagery.
     data_product : str
@@ -141,8 +142,7 @@ def synch(station,
     erddap_link : str
         URL to ERDDAP page (e.g. "https://oceanwatch.pfeg.noaa.gov/noaa_wide/erddap/")
         Default: "https://oceanwatch.pfeg.noaa.gov/noaa_wide/erddap/" 
-    erddap_dataset_id: str
-        dataset id for specific data source to look for (e.g. ONSET_gloucester_hourly_water_level)
+        
         
     Returns
     _ _ _ _ _ 
@@ -153,11 +153,17 @@ def synch(station,
     _check_date_format(time_end, 'end', token)
     _check_date_range(camera, camera_product, time_start, time_end, token)
 
-    if station !=0:
+    try:
+        dataset_id = int(dataset_id)
+        NWLON = True
         # calling tide guage from coops api
-        datas = _synch_init_coops(station, data_product, value, time_start, time_end, interval, cutoff)
+    except ValueError:
+        NWLON = False
+
+    if NWLON:
+        datas = _synch_init_coops(dataset_id, data_product, value, time_start, time_end, interval, cutoff)
     else:
-        datas = _synch_init_erdap(erddap_link, erddap_dataset_id, data_product, value, time_start, time_end, interval, cutoff)
+        datas = _synch_init_erdap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff)
 
     # Download image for each data point #
     datas['image'] = ''
@@ -282,9 +288,9 @@ def make_movie(datas, camera, station, fps=4, view_num=None):
     return video_file
 
 
-def _synch_init_coops(station, data_product, value, time_start, time_end, interval, cutoff):
+def _synch_init_coops(dataset_id, data_product, value, time_start, time_end, interval, cutoff):
     # First get all the data of the requested product for the requested time period #
-    data = _call_CoopsApi(station, data_product, time_start, time_end)
+    data = _call_CoopsApi(dataset_id, data_product, time_start, time_end)
     data = data[data['date_time'] >= _datestr2dt(time_start)]
     data = data[data['date_time'] <= _datestr2dt(time_end)]
     
@@ -313,14 +319,14 @@ def _synch_init_coops(station, data_product, value, time_start, time_end, interv
         raise ValueError("value argument must be either 'all' or a float/integer value.")
     return datas   
 
-def _synch_init_erdap(erddap_link, erddap_dataset_id, data_product, value, time_start, time_end, interval, cutoff):
+def _synch_init_erdap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff):
     # get data for specified erddap dataset at specified server
     # assumes the user knows the dataset id 
     e = ERDDAP(
         server=erddap_link,    
         protocol="tabledap",
         )
-    e.dataset_id = erddap_dataset_id
+    e.dataset_id = dataset_id
     e_temp = e
 
     # get a location of the sensor to find local timezone
