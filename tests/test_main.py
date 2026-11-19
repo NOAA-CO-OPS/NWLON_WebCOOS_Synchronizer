@@ -110,7 +110,7 @@ def test_get_inventory():
 
 def test_synch_value_equals_all():
     key = _get_key()
-    synchro = synch.synch(dataset_id=8665530,           
+    synchro, metadata = synch.synch(dataset_id=8665530,           
                           camera='Charleston Harbor, SC',  
                           data_product='water_level', 
                           camera_product='one-minute-stills',     
@@ -133,7 +133,7 @@ def test_synch_value_equals_all():
 
 def test_synch_value_equals_float():
     key = _get_key()
-    synchro = synch.synch(dataset_id=8665530,           
+    synchro, metadata = synch.synch(dataset_id=8665530,           
                           camera='Charleston Harbor, SC',  
                           data_product='water_level', 
                           camera_product='one-minute-stills',     
@@ -167,7 +167,7 @@ def test_synch_local():
 
 def test_make_movie():
     key = _get_key()
-    synchro = synch.synch(dataset_id=8665530,           
+    synchro, metadata = synch.synch(dataset_id=8665530,           
                           camera='Charleston Harbor, SC',  
                           data_product='water_level', 
                           camera_product='one-minute-stills',     
@@ -179,7 +179,7 @@ def test_make_movie():
                           sep_model=None,        
                           token=key,             
                           save_dir='.')
-    synch.make_movie(synchro, camera='Charleston Harbor, SC', dataset_id=8665530)
+    synch.make_movie(synchro, metadata, camera='Charleston Harbor, SC', dataset_id=8665530)
     os.remove('nwlon_charleston-2024-01-01-150053Z.jpg')
     os.remove('nwlon_charleston-2024-01-01-150152Z.jpg')
     os.remove('nwlon_charleston-2024-01-01-150253Z.jpg')
@@ -233,7 +233,7 @@ def test_build_virtual_station_end_to_end_from_station(station: int):
     df = calculate_camera_distance_table(station, token)
     camera = df['name'].iloc[0]
     print("Starting data sync...")
-    synchro = synch.synch(
+    synchro, metadata = synch.synch(
         dataset_id=station,
         camera=camera,
         data_product='water_level',
@@ -248,7 +248,7 @@ def test_build_virtual_station_end_to_end_from_station(station: int):
         save_dir='tmp'
     )
     print("Completed image sync, starting to render movie...")
-    _ = synch.make_movie(synchro,camera,station)
+    _ = synch.make_movie(synchro, metadata, camera,station)
 
 @pytest.mark.parametrize("camera_id", WEBCOOS_CAMERAS)
 def test_build_virtual_station_end_to_end_from_camera(camera_id: str):
@@ -265,7 +265,7 @@ def test_build_virtual_station_end_to_end_from_camera(camera_id: str):
     station = df['uuid'].iloc[0]
     camera = df['camera'].iloc[0]
     print("Starting data sync...")
-    synchro = synch.synch(
+    synchro, metadata = synch.synch(
         dataset_id=station,
         camera=camera,
         data_product='water_level',
@@ -280,7 +280,7 @@ def test_build_virtual_station_end_to_end_from_camera(camera_id: str):
         save_dir='tmp'
     )
     print("Completed image sync, starting to render movie...")
-    _ = synch.make_movie(synchro,camera,station)
+    _ = synch.make_movie(synchro,metadata, camera,station)
 
 def _get_key():
     key = os.getenv('API_KEY')

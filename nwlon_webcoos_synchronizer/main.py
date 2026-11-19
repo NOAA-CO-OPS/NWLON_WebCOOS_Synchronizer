@@ -15,6 +15,10 @@ import click
 from erddapy import ERDDAP
 from timezonefinder import TimezoneFinder
 from zoneinfo import ZoneInfo
+import cartopy
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import contextily as ctx
 
 import moviepy
 if moviepy.__version__ == '1.0.3':
@@ -25,6 +29,7 @@ else:
 
 from .CoopsApi import CoopsApi
 from .CoopsApiTwo import CoopsApiTwo
+from .search import get_all_cameras_with_metadata
 
 
 warnings.filterwarnings('ignore')
@@ -165,8 +170,11 @@ def synch(dataset_id,
         datas = _synch_init_coops(dataset_id, data_product, value, time_start, time_end, interval, cutoff)
     else:
         # gete data from erddap
-        datas = _synch_init_erddap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff)
+        datas, sensor_metadata = _synch_init_erddap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff)
 
+    # get camera coordinates
+    camera_metadata = _get_camera_metadata(camera, token)
+    
     # Download image for each data point #
     datas['image'] = ''
     for i in range(len(datas)):
@@ -202,8 +210,10 @@ def synch(dataset_id,
         datas['view'] = pred
     else:
         datas['view'] = list(np.zeros(len(datas))*np.nan)
+
+    metadata = sensor_metadata | camera_metadata
        
-    return datas
+    return datas, metadata
 
 
 def synch_local(dataset_id, camera, data_product, local_dir, value, time_start, time_end, interval, cutoff, erddap_link = "https://oceanwatch.pfeg.noaa.gov/noaa_wide/erddap/", ):
@@ -259,7 +269,7 @@ def synch_local(dataset_id, camera, data_product, local_dir, value, time_start, 
         datas = _synch_init_coops(dataset_id, data_product, value, time_start, time_end, interval, cutoff)
     else:
         # gete data from erddap
-        datas = _synch_init_erddap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff)
+        datas, sensor_metadata = _synch_init_erddap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff)
     
     # Download image for each data point #
     datas['image'] = ''
@@ -275,7 +285,7 @@ def synch_local(dataset_id, camera, data_product, local_dir, value, time_start, 
     return datas
     
     
-def make_movie(datas, camera, dataset_id, fps=4, view_num=None):
+def make_movie(datas, metadata, camera, dataset_id, fps=4, view_num=None):
     '''
     Function to make a movie of synchronized data and webcamera imagery.
     
@@ -283,6 +293,8 @@ def make_movie(datas, camera, dataset_id, fps=4, view_num=None):
     _ _ _ _ _ 
     datas : Pandas DataFrame
         The synchroized data and webcamera frames returned by synch().
+    metadata: dict
+        Dictionary of metadata for camera and sensor, used to create map
     camera : str
         The name of the camera from which datas was created.
     dataset_id : int or str
@@ -300,7 +312,7 @@ def make_movie(datas, camera, dataset_id, fps=4, view_num=None):
         The full path to the video file (.mp4) that is created.
     '''
     # Create and save frames #
-    datas_mov = _save_frames(datas, camera, dataset_id, view_num)      
+    datas_mov = _save_frames(datas, metadata, camera, dataset_id, view_num)      
     
     # Make the movie #
     video_file = _produce_movie(datas_mov, fps)
@@ -425,7 +437,9 @@ def _synch_init_erddap(dataset_id, erddap_link, data_product, value, time_start,
     else:
         raise ValueError("value argument must be either 'all' or a float/integer value.")
 
-    return datas 
+    sensor_metadata = {'sensor_latitude': latitude, 'sensor_longitude': longitude}
+
+    return datas, sensor_metadata 
 
 def _time_zone_with_lat_lon(latitude, longitude):
     # Initialize the finder 
@@ -475,8 +489,18 @@ def _call_WebcoosApi(camera, product, time_start, time_end, token, save_dir):
                              stop=time_end,
                              interval=1,
                              save_dir=save_dir)
+
     return filenames
 
+def _get_camera_metadata(camera, token):
+    cameras_metadata = get_all_cameras_with_metadata(token)
+    for camera_metadata in cameras_metadata:
+        if camera_metadata['data']['common']['label'] == camera:
+            coordinates = camera_metadata['data']['properties']['location']['coordinates']
+
+    camera_metadata = {'camera_longitude': coordinates[0], 'camera_latitude': coordinates[1]}
+
+    return camera_metadata
 
 def _get_local_image(local_dir, time):
     dt_want = _datestr2dt(time)
@@ -554,7 +578,7 @@ def _check_local_dir(local_dir):
         raise ValueError("At least one file in the image directory is not named with the format yyyymmddHHMM.png/jpg/tif.")
 
 
-def _save_frames(datas, camera, dataset_id, view_num):
+def _save_frames(datas, metadata, camera, dataset_id, view_num):
     '''
     Save each frame of a movie.
     '''
@@ -578,7 +602,7 @@ def _save_frames(datas, camera, dataset_id, view_num):
     for i in ii:
         if ts:
             # Get the timeseries frame template #
-            fig, ax_img, ax_data = _FrameTemplates().ts(datas)            
+            fig, ax_img, ax_map, ax_data = _FrameTemplates().ts(datas)            
             # Plot previous data as a line and the current data as a point #
             ax_data.plot(datas['date_time'].iloc[0:i+1].dt.to_pydatetime(), datas['value'].iloc[0:i+1], color='cornflowerblue')
             ax_data.scatter(datas['date_time'].iloc[i].to_pydatetime(), datas['value'].iloc[i], 150, 
@@ -594,16 +618,65 @@ def _save_frames(datas, camera, dataset_id, view_num):
         ax_img.set_yticklabels([])
         ax_img.set_xticks([])
         ax_img.set_yticks([])
+        # ax_map.set_xticklabels([])
+        # ax_map.set_yticklabels([])
+        # ax_map.set_xticks([])
+        # ax_map.set_yticks([])
         ax_data.grid('on')
         ax_data.set_ylabel('Height in meters (MHHW)')
         ax_img.set_title('Camera: '+camera+'\nGauge: '+str(dataset_id), fontsize=10, fontweight='normal', loc='left')
 
+        # Plot points
+        camera_lon = metadata['camera_longitude']
+        camera_lat = metadata['camera_latitude']
+        sensor_lon = metadata['sensor_longitude']
+        sensor_lat = metadata['sensor_latitude']
+        ax_map.scatter(sensor_lon, sensor_lat, 
+                color='red',
+                s=50,
+                label = "sensor",
+                transform=ccrs.PlateCarree())
+        ax_map.scatter(camera_lon, camera_lat, 
+                        color='blue',
+                        s=50,
+                        label = "camera",
+                        transform=ccrs.PlateCarree())
+        ax_map.legend()
+            
+        # Compute padded bounds
+        lat_range = abs(sensor_lat - camera_lat)
+        lon_range = abs(sensor_lon - camera_lon)
+        pad_fraction = 0.2
+        lat_pad = max(lat_range * pad_fraction, 0.05)
+        lon_pad = max(lon_range * pad_fraction, 0.05)
+    
+        extent = [
+                min(camera_lon, sensor_lon) - lon_pad,
+                max(camera_lon, sensor_lon) + lon_pad,
+                min(camera_lat, sensor_lat) - lat_pad,
+                max(camera_lat, sensor_lat) + lat_pad,
+            ]
+
+        # ax_map.set_extent(extent, crs=ccrs.PlateCarree())
+
+        # Optional map features
+        ax_map.add_feature(cfeature.COASTLINE)
+        ax_map.add_feature(cfeature.BORDERS, linestyle=':')
+        ax_map.add_feature(cfeature.STATES, linewidth=0.5)
+        
+        # ctx.add_basemap(
+        #     ax_map,
+        #     source=ctx.providers.Esri.WorldImagery, zoom = 15, attribution = False
+        # )
+
+
+        
         # Plot the NWS flood threshold levels on the data axis (only for NWLON data) #
         mhhw = 0
         if ax_data.get_ylim()[0] < mhhw < ax_data.get_ylim()[1]:  # Plot the mhhw level if the data covers it #
             ax_data.plot(ax_data.get_xlim(), [mhhw, mhhw], 'k--')
             ax_data.text(ax_data.get_xlim()[0], mhhw, 'MHHW', color='k', fontsize=12)
-        if dataset_id != 0:
+        if type(dataset_id) == int:
             minor = _get_flood_thresh(dataset_id)['nws_minor']
         else:
             minor = None
@@ -611,7 +684,7 @@ def _save_frames(datas, camera, dataset_id, view_num):
             if ax_data.get_ylim()[0] < minor < ax_data.get_ylim()[1]:  # Plot the minor flood level if the data covers it #
                 ax_data.plot(ax_data.get_xlim(), [minor, minor], 'y--')
                 ax_data.text(ax_data.get_xlim()[0], minor, 'Minor flooding', color='y', fontsize=12)
-        if dataset_id != 0:
+        if type(dataset_id) == int:
             moderate = _get_flood_thresh(dataset_id)['nws_moderate']
         else:
             moderate = None
@@ -619,7 +692,7 @@ def _save_frames(datas, camera, dataset_id, view_num):
             if ax_data.get_ylim()[0] < moderate < ax_data.get_ylim()[1]:  # Plot the moderate flood level if the data covers it #
                 ax_data.plot(ax_data.get_xlim(), [moderate, moderate], 'r--')
                 ax_data.text(ax_data.get_xlim()[0], moderate, 'Moderate flooding', color='r', fontsize=12)        
-        if dataset_id != 0:
+        if type(dataset_id) == int:
             major = _get_flood_thresh(dataset_id)['nws_major']
         else:
             major = None
@@ -679,13 +752,14 @@ class _FrameTemplates():
     @staticmethod
     def ts(datas):
         fig = plt.figure(figsize = (9, 8)) 
-        ax_img = plt.subplot2grid((20, 19), (0, 0), colspan=19, rowspan=11)
+        ax_img = plt.subplot2grid((20, 19), (0, 0), colspan=12, rowspan=11)
+        ax_map = plt.subplot2grid((20, 19), (0, 14), colspan=6, rowspan=11, projection=ccrs.PlateCarree())
         ax_data = plt.subplot2grid((20, 19), (12, 0), colspan=19, rowspan=9)
         plt.subplots_adjust(hspace=0)
         ax_data.set_xlim(datas['date_time'].iloc[0].to_pydatetime(), datas['date_time'].iloc[-1].to_pydatetime())
         ax_data.set_ylim(np.min(datas['value'])-0.1, np.max(datas['value'])+0.1)
         ax_data.xaxis.set_major_formatter(DateFormatter('%m/%d/%y\n%H:%M'))      
-        return fig, ax_img, ax_data
+        return fig, ax_img, ax_map, ax_data
     
     @staticmethod
     def bar(datas, dataset_id):
@@ -883,7 +957,7 @@ def cli(dataset_id, camera, data_product, camera_product, value, time_start, tim
             raise click.BadParameter("value must be 'all' or a numeric value.")
     
     click.echo("Synchronizing data and downloading frames...")
-    datas = synch(
+    datas, metadata = synch(
         dataset_id=dataset_id, camera=camera, data_product=data_product, 
         camera_product=camera_product, value=value, time_start=time_start, 
         time_end=time_end, interval=interval, cutoff=cutoff, 
@@ -893,7 +967,7 @@ def cli(dataset_id, camera, data_product, camera_product, value, time_start, tim
                   
     click.echo("Generating movie...")
     video_file = make_movie(
-        datas=datas, camera=camera, dataset_id=dataset_id, 
+        datas=datas, metadata = metadata, camera=camera, dataset_id=dataset_id, 
         fps=fps, view_num=view_num
     )
     
