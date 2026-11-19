@@ -156,14 +156,16 @@ def synch(dataset_id,
     try:
         dataset_id = int(dataset_id)
         NWLON = True
-        # calling tide guage from coops api
+        
     except ValueError:
         NWLON = False
 
     if NWLON:
+        # calling tide guage from coops api
         datas = _synch_init_coops(dataset_id, data_product, value, time_start, time_end, interval, cutoff)
     else:
-        datas = _synch_init_erdap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff)
+        # gete data from erddap
+        datas = _synch_init_erddap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff)
 
     # Download image for each data point #
     datas['image'] = ''
@@ -319,7 +321,7 @@ def _synch_init_coops(dataset_id, data_product, value, time_start, time_end, int
         raise ValueError("value argument must be either 'all' or a float/integer value.")
     return datas   
 
-def _synch_init_erdap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff):
+def _synch_init_erddap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff):
     # get data for specified erddap dataset at specified server
     # assumes the user knows the dataset id 
     e = ERDDAP(
