@@ -280,7 +280,7 @@ def test_build_virtual_station_end_to_end_from_camera(camera_id: str):
         save_dir='tmp'
     )
     print("Completed image sync, starting to render movie...")
-    _ = synch.make_movie(synchro,camera,station)
+    _ = synch.make_movie(synchro, camera, station)
 
 def _get_key():
     key = os.getenv('API_KEY')
