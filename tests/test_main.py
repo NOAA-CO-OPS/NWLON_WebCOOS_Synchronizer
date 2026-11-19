@@ -234,7 +234,7 @@ def test_build_virtual_station_end_to_end_from_station(station: int):
     camera = df['name'].iloc[0]
     print("Starting data sync...")
     synchro = synch.synch(
-        station=station,
+        dataset_id=station,
         camera=camera,
         data_product='water_level',
         camera_product='one-minute-stills',
@@ -266,7 +266,7 @@ def test_build_virtual_station_end_to_end_from_camera(camera_id: str):
     camera = df['camera'].iloc[0]
     print("Starting data sync...")
     synchro = synch.synch(
-        station=station,
+        dataset_id=station,
         camera=camera,
         data_product='water_level',
         camera_product='one-minute-stills',
