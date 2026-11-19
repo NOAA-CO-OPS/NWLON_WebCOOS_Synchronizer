@@ -15,4 +15,5 @@ dependencies:
     - click
     - moviepy
     - erddapy
+    - timezonefinder
     - pywebcoos @ git+https://github.com/WebCOOS/py-webcoos-client.git

@@ -13,6 +13,8 @@ from sklearn.neural_network import MLPClassifier
 import warnings
 import click
 from erddapy import ERDDAP
+from timezonefinder import TimezoneFinder
+from zoneinfo import ZoneInfo
 
 import moviepy
 if moviepy.__version__ == '1.0.3':
@@ -88,7 +90,7 @@ def get_inventory(camera, product, token):
     return api.get_inventory(camera, product)
 
 
-def synch(station, 
+def synch(dataset_id, 
           camera, 
           data_product, 
           camera_product, 
@@ -100,19 +102,22 @@ def synch(station,
           sep_model, 
           token, 
           save_dir,
-          erddap_link = "", 
-          erddap_dataset_id = "", ):
+          erddap_link = "https://oceanwatch.pfeg.noaa.gov/noaa_wide/erddap/", 
+           ):
     '''
     Function to synchronize webcamera imagery frames with CO-OPS data.
     
     Parameters
     _ _ _ _ _ 
-    station : int
-        The NWLON station ID from which to use data.
+    dataset_id : int or str
+        If int --> the NWLON station ID from which to use data
+        If str --> dataset id for ERDDAP data source to look for (e.g. ONSET_gloucester_hourly_water_level)
     camera : str
         The name of the camera from which to use imagery.
     data_product : str
-        The CO-OPS data product to use from station (e.g. water_level).
+        If using CO-OPS water level station, the CO-OPS data product to use from station (e.g. water_level).
+        If using ERDDAP sensor, the data product to use. If "", then allows to user to select variable name. 
+            Don't include units
     camera_product : str
         The name of the imagery product to use from camera.
     value : str or float
@@ -135,9 +140,9 @@ def synch(station,
     save_dir : str
         The directory to which to save frames and the final movie.
     erddap_link : str
-        URL to ERDDAP page (e.g. "https://data.neracoos.org/erddap/")
-    erddap_dataset_id: str
-        dataset id for specific data source to look for (e.g. ONSET_gloucester_hourly_water_level)
+        URL to ERDDAP page (e.g. "https://oceanwatch.pfeg.noaa.gov/noaa_wide/erddap/")
+        Default: "https://oceanwatch.pfeg.noaa.gov/noaa_wide/erddap/" 
+        
         
     Returns
     _ _ _ _ _ 
@@ -148,11 +153,19 @@ def synch(station,
     _check_date_format(time_end, 'end', token)
     _check_date_range(camera, camera_product, time_start, time_end, token)
 
-    if station !=0:
+    try:
+        dataset_id = int(dataset_id)
+        NWLON = True
+        
+    except ValueError:
+        NWLON = False
+
+    if NWLON:
         # calling tide guage from coops api
-        datas = _synch_init_coops(station, data_product, value, time_start, time_end, interval, cutoff)
+        datas = _synch_init_coops(dataset_id, data_product, value, time_start, time_end, interval, cutoff)
     else:
-        datas = _synch_init_erdap(erddap_link, erddap_dataset_id, data_product, value, time_start, time_end, interval, cutoff)
+        # gete data from erddap
+        datas = _synch_init_erddap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff)
 
     # Download image for each data point #
     datas['image'] = ''
@@ -193,15 +206,16 @@ def synch(station,
     return datas
 
 
-def synch_local(station, camera, data_product, local_dir, value, time_start, time_end, interval, cutoff):
+def synch_local(dataset_id, camera, data_product, local_dir, value, time_start, time_end, interval, cutoff, erddap_link = "https://oceanwatch.pfeg.noaa.gov/noaa_wide/erddap/", ):
     '''
     Function to synchronize locally-stored camera imagery frames with CO-OPS data.
     *NOTE*: your images must be named in the following format: yyyymmddHHMM.png/jpeg, and must be the only files in local_dir.
     
     Parameters
     _ _ _ _ _ 
-    station : int
-        The NWLON station ID from which to use data.
+    dataset_id : int or str
+        If int --> the NWLON station ID from which to use data
+        If str --> dataset id for ERDDAP data source to look for (e.g. ONSET_gloucester_hourly_water_level)
     camera : str
         The name of the camera from which to use imagery. Can be anything in this case.
     data_product : str
@@ -221,7 +235,10 @@ def synch_local(station, camera, data_product, local_dir, value, time_start, tim
     cutoff : int or None
         Crop available data to this many data points / frames.
         For example, if value='highest' and value=10, the 10 hishest data values between time_start and time_end will be synchronized.
-        
+    erddap_link : str
+        URL to ERDDAP page (e.g. "https://oceanwatch.pfeg.noaa.gov/noaa_wide/erddap/")
+        Default: "https://oceanwatch.pfeg.noaa.gov/noaa_wide/erddap/" 
+    
     Returns
     _ _ _ _ _ 
     datas : Pandas DataFrame
@@ -230,7 +247,19 @@ def synch_local(station, camera, data_product, local_dir, value, time_start, tim
     
     _check_local_dir(local_dir)
     
-    datas = _synch_init_coops(station, data_product, value, time_start, time_end, interval, cutoff)
+    try:
+        dataset_id = int(dataset_id)
+        NWLON = True
+        
+    except ValueError:
+        NWLON = False
+
+    if NWLON:
+        # calling tide guage from coops api
+        datas = _synch_init_coops(dataset_id, data_product, value, time_start, time_end, interval, cutoff)
+    else:
+        # gete data from erddap
+        datas = _synch_init_erddap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff)
     
     # Download image for each data point #
     datas['image'] = ''
@@ -246,7 +275,7 @@ def synch_local(station, camera, data_product, local_dir, value, time_start, tim
     return datas
     
     
-def make_movie(datas, camera, station, fps=4, view_num=None):
+def make_movie(datas, camera, dataset_id, fps=4, view_num=None):
     '''
     Function to make a movie of synchronized data and webcamera imagery.
     
@@ -256,8 +285,9 @@ def make_movie(datas, camera, station, fps=4, view_num=None):
         The synchroized data and webcamera frames returned by synch().
     camera : str
         The name of the camera from which datas was created.
-    station : int
-        The NWLON station ID from which datas was created.
+    dataset_id : int or str
+        If int --> the NWLON station ID from which to use data
+        If str --> dataset id for ERDDAP data source to look for (e.g. ONSET_gloucester_hourly_water_level)
     fps : int
         The frames per second of the movie.
     view_num : int, optional
@@ -270,16 +300,16 @@ def make_movie(datas, camera, station, fps=4, view_num=None):
         The full path to the video file (.mp4) that is created.
     '''
     # Create and save frames #
-    datas_mov = _save_frames(datas, camera, station, view_num)      
+    datas_mov = _save_frames(datas, camera, dataset_id, view_num)      
     
     # Make the movie #
     video_file = _produce_movie(datas_mov, fps)
     return video_file
 
 
-def _synch_init_coops(station, data_product, value, time_start, time_end, interval, cutoff):
+def _synch_init_coops(dataset_id, data_product, value, time_start, time_end, interval, cutoff):
     # First get all the data of the requested product for the requested time period #
-    data = _call_CoopsApi(station, data_product, time_start, time_end)
+    data = _call_CoopsApi(dataset_id, data_product, time_start, time_end)
     data = data[data['date_time'] >= _datestr2dt(time_start)]
     data = data[data['date_time'] <= _datestr2dt(time_end)]
     
@@ -308,33 +338,73 @@ def _synch_init_coops(station, data_product, value, time_start, time_end, interv
         raise ValueError("value argument must be either 'all' or a float/integer value.")
     return datas   
 
-def _synch_init_erdap(erddap_link, erddap_dataset_id, data_product, value, time_start, time_end, interval, cutoff):
-    # convert timestamps to appropriate string format for ERDDAP
-    time_start_datetime = datetime.datetime.strptime(time_start, "%Y%m%d%H%M")
-    time_start = time_start_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    time_end_datetime = datetime.datetime.strptime(time_end, "%Y%m%d%H%M")
-    time_end = time_end_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
-    
+def _synch_init_erddap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff):
     # get data for specified erddap dataset at specified server
-    # assumes the user knows the dataset id and only works for one datasets variable names
+    # assumes the user knows the dataset id 
     e = ERDDAP(
         server=erddap_link,    
         protocol="tabledap",
         )
-    e.dataset_id = erddap_dataset_id
-    e.constraints = {'time>=':time_start,
-                     'time<=':time_end}
+    e.dataset_id = dataset_id
+    e_temp = e
+
+    # get a location of the sensor to find local timezone
+    e_temp.variables = ['latitude', 'longitude']
+    location_datas = e_temp.to_pandas()
+
+    latitude = location_datas['latitude (degrees_north)'].iloc[0]
+    longitude = location_datas['longitude (degrees_east)'].iloc[0]
+    timezone = _time_zone_with_lat_lon(latitude, longitude)
+    
+    # convert timestamps to appropriate string format for ERDDAP
+    # ensure datetime has the appropriate local timezone for water level station
+    time_start_datetime_local = datetime.datetime.strptime(time_start, "%Y%m%d%H%M").replace(tzinfo=ZoneInfo(timezone))
+    # convert timezone from local time to UTC
+    time_start_datetime_utc = time_start_datetime_local.astimezone(datetime.timezone.utc)
+    time_start_utc = time_start_datetime_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    time_end_datetime_local = datetime.datetime.strptime(time_end, "%Y%m%d%H%M").replace(tzinfo=ZoneInfo(timezone))
+    # convert timezone from local time to UTC
+    time_end_datetime_utc = time_end_datetime_local.astimezone(datetime.timezone.utc)
+    time_end_utc = time_end_datetime_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    
+    
+    e.constraints = {'time>=':time_start_utc,
+                     'time<=':time_end_utc}
+    # if the user didn't enter a data product or the data product is not available
+    # in the dataset gives the users two chances to select value
+    if data_product == "" or not data_product in list(e._get_variables().keys()):
+        print("Enter desired water level variable from list:")
+        print(list(e._get_variables().keys()))
+        # allow user input for water level variable
+        data_product = input()
+        # strip out leading and trailing quotations on strings
+        data_product = data_product.strip("'").strip("'")
+
+        # check if data product is in the variables in dataset
+        if data_product in list(e._get_variables().keys()):
+            pass
+        else:
+            print("Entered water level variable does not exist. Try again") 
+            # allow user input for water level variable
+            data_product = input()
+            # strip out leading and trailing quotations on strings
+            data_product = data_product.strip("'").strip("'")
+            assert data_product in list(e._get_variables().keys()), "Variable not found."
     e.variables=['time',data_product]
     data = e.to_pandas()
+ 
+    # get units on the variable. This is appended to variable name in DataFrame
+    units = e._get_variables()[data_product]['units']
 
     # convert time column to datetime
-    data['time (UTC)'] = pd.to_datetime(data['time (UTC)'])
+    data['time (UTC)'] = pd.to_datetime(data['time (UTC)'], utc = True)
+    data[f'time {timezone}'] = data['time (UTC)'].dt.tz_convert(timezone)
 
     # Interpolate to the desired data interval #
-    data_dates = pd.date_range(time_start_datetime, time_end_datetime, freq=str(interval)+'min')      
-    datai_v = data[data_product + ' (m)']
-    datai_v = np.interp(data_dates, data['time (UTC)'], datai_v)
+    data_dates = pd.date_range(time_start_datetime_local, time_end_datetime_local, freq=str(interval)+'min')      
+    datai_v = data[f"{data_product} ({units})"]
+    datai_v = np.interp(data_dates, data[f'time {timezone}'], datai_v)
     datai = pd.DataFrame({'date_time': data_dates, 'value': datai_v})
     data = datai
 
@@ -356,6 +426,15 @@ def _synch_init_erdap(erddap_link, erddap_dataset_id, data_product, value, time_
         raise ValueError("value argument must be either 'all' or a float/integer value.")
 
     return datas 
+
+def _time_zone_with_lat_lon(latitude, longitude):
+    # Initialize the finder 
+    tf = TimezoneFinder()
+
+    # Get the IANA timezone string (note: lng comes first)
+    tz_name = tf.timezone_at(lng=longitude, lat=latitude)
+
+    return tz_name
 
     
 def _call_CoopsApi(station, data_product, time_start, time_end):
@@ -475,7 +554,7 @@ def _check_local_dir(local_dir):
         raise ValueError("At least one file in the image directory is not named with the format yyyymmddHHMM.png/jpg/tif.")
 
 
-def _save_frames(datas, camera, station, view_num):
+def _save_frames(datas, camera, dataset_id, view_num):
     '''
     Save each frame of a movie.
     '''
@@ -506,7 +585,7 @@ def _save_frames(datas, camera, station, view_num):
                             color='cornflowerblue', edgecolor='darkgray', linewidth=2, alpha=1)
         else:
             # Get the bar frame template #
-            fig, ax_img, ax_data = _FrameTemplates().bar(datas, station)
+            fig, ax_img, ax_data = _FrameTemplates().bar(datas, dataset_id)
             # Plot the current data as a bar #
             ax_data.bar(1, datas['value'].iloc[i], width=0.5, color='cornflowerblue', edgecolor='darkgray')
             
@@ -517,31 +596,31 @@ def _save_frames(datas, camera, station, view_num):
         ax_img.set_yticks([])
         ax_data.grid('on')
         ax_data.set_ylabel('Height in meters (MHHW)')
-        ax_img.set_title('Camera: '+camera+'\nGauge: '+str(station), fontsize=10, fontweight='normal', loc='left')
+        ax_img.set_title('Camera: '+camera+'\nGauge: '+str(dataset_id), fontsize=10, fontweight='normal', loc='left')
 
         # Plot the NWS flood threshold levels on the data axis (only for NWLON data) #
         mhhw = 0
         if ax_data.get_ylim()[0] < mhhw < ax_data.get_ylim()[1]:  # Plot the mhhw level if the data covers it #
             ax_data.plot(ax_data.get_xlim(), [mhhw, mhhw], 'k--')
             ax_data.text(ax_data.get_xlim()[0], mhhw, 'MHHW', color='k', fontsize=12)
-        if station != 0:
-            minor = _get_flood_thresh(station)['nws_minor']
+        if dataset_id != 0:
+            minor = _get_flood_thresh(dataset_id)['nws_minor']
         else:
             minor = None
         if minor is not None:
             if ax_data.get_ylim()[0] < minor < ax_data.get_ylim()[1]:  # Plot the minor flood level if the data covers it #
                 ax_data.plot(ax_data.get_xlim(), [minor, minor], 'y--')
                 ax_data.text(ax_data.get_xlim()[0], minor, 'Minor flooding', color='y', fontsize=12)
-        if station != 0:
-            moderate = _get_flood_thresh(station)['nws_moderate']
+        if dataset_id != 0:
+            moderate = _get_flood_thresh(dataset_id)['nws_moderate']
         else:
             moderate = None
         if moderate is not None:
             if ax_data.get_ylim()[0] < moderate < ax_data.get_ylim()[1]:  # Plot the moderate flood level if the data covers it #
                 ax_data.plot(ax_data.get_xlim(), [moderate, moderate], 'r--')
                 ax_data.text(ax_data.get_xlim()[0], moderate, 'Moderate flooding', color='r', fontsize=12)        
-        if station != 0:
-            major = _get_flood_thresh(station)['nws_major']
+        if dataset_id != 0:
+            major = _get_flood_thresh(dataset_id)['nws_major']
         else:
             major = None
         if major is not None:
@@ -609,14 +688,14 @@ class _FrameTemplates():
         return fig, ax_img, ax_data
     
     @staticmethod
-    def bar(datas, station):
+    def bar(datas, dataset_id):
         fig = plt.figure(figsize=(9, 4)) 
         ax_img = plt.subplot2grid((11, 19), (0, 0), colspan=12, rowspan=11)
         ax_data = plt.subplot2grid((11, 19), (1, 13), colspan=6, rowspan=9)
         ax_data.yaxis.tick_right()
         ax_data.yaxis.set_label_position("right")
         plt.subplots_adjust(wspace=0)
-        ax_data.set_ylim(min([np.min(datas['value']), 0])-0.05, _get_flood_thresh(station)['nws_major']+0.1)
+        ax_data.set_ylim(min([np.min(datas['value']), 0])-0.05, _get_flood_thresh(dataset_id)['nws_major']+0.1)
         ax_data.set_xlim(0.5, 1.5)
         ax_data.set_xticks([1])
         ax_data.set_xticklabels([])
@@ -778,9 +857,9 @@ class ViewSeparator():
         return pred
 
 @click.command()
-@click.option('--station', required=True, type=int, help='The NWLON station ID. Use 0 if using RA data from an ERDDAP server.')
+@click.option('--dataset-id', required=True, type=str, help='If int --> the NWLON station ID from which to use data. If str --> dataset id for ERDDAP data source to look for (e.g. ONSET_gloucester_hourly_water_level)')
 @click.option('--camera', required=True, type=str, help='The WebCOOS camera name.')
-@click.option('--data-product', required=True, type=str, help='The CO-OPS data product to make a timeseries of.')
+@click.option('--data-product', required=True, type=str, help="If using CO-OPS water level station, the CO-OPS data product to use from station (e.g. water_level). \nIf using ERDDAP sensor, the data product to use. If \"\", then allows to user to select variable name. \n Don't include units")
 @click.option('--camera-product', required=True, type=str, help='The WebCOOS image product to use for the movie.')
 @click.option('--value', default='all', help="Qualifier for data types: 'all' or a numeric float value.")
 @click.option('--time-start', required=True, type=str, help="Start time (camera local time) in format 'yyyymmddHHMM'.")
@@ -790,11 +869,10 @@ class ViewSeparator():
 @click.option('--sep-model', type=click.Path(exists=True), default=None, help='A trained view separation model. Can be made yourself. Not needed for this non-PTZ camera.')
 @click.option('--token', required=True, envvar='WEBCOOS_TOKEN', help='Your WebCOOS API token.')
 @click.option('--save-dir', required=True, type=click.Path(), help='The directory to which to save frames and the final movie.')
-@click.option('--erddap-link', default="", type=click.Path(), help='The ERDDAP Server for the data. Not used if using NWLON data')
-@click.option('--erddap-dataset-id', default="", type=click.Path(), help='The RA dataset id. Not used if using NWLON data.')
+@click.option('--erddap-link', default="https://oceanwatch.pfeg.noaa.gov/noaa_wide/erddap/", type=click.Path(), help='The ERDDAP Server for the data. Not used if using NWLON data')
 @click.option('--fps', type=int, default=4, help='The frames per second of the movie.')
 @click.option('--view-num', type=int, default=None, help='The number of the view for which you want to create a movie.')
-def cli(station, camera, data_product, camera_product, value, time_start, time_end, interval, cutoff, sep_model, token, save_dir, erddap_link, erddap_dataset_id, fps, view_num):
+def cli(dataset_id, camera, data_product, camera_product, value, time_start, time_end, interval, cutoff, sep_model, token, save_dir, fps, view_num, erddap_link):
     """Command line interface to synchronize CO-OPS data with WebCOOS imagery and create a movie."""
     
     # Handle the casting of `value` since click processes strings by default
@@ -806,16 +884,16 @@ def cli(station, camera, data_product, camera_product, value, time_start, time_e
     
     click.echo("Synchronizing data and downloading frames...")
     datas = synch(
-        station=station, camera=camera, data_product=data_product, 
+        dataset_id=dataset_id, camera=camera, data_product=data_product, 
         camera_product=camera_product, value=value, time_start=time_start, 
         time_end=time_end, interval=interval, cutoff=cutoff, 
         sep_model=sep_model, token=token, save_dir=save_dir,
-        erddap_link=erddap_link, erddap_dataset_id=erddap_dataset_id
+        erddap_link=erddap_link
     )
                   
     click.echo("Generating movie...")
     video_file = make_movie(
-        datas=datas, camera=camera, station=station, 
+        datas=datas, camera=camera, dataset_id=dataset_id, 
         fps=fps, view_num=view_num
     )
     
