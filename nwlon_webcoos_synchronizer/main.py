@@ -176,7 +176,7 @@ def synch(dataset_id,
         datas = _synch_init_erddap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff)
 
     # CO-OPS is requested in station-local time; ERDDAP timestamps are UTC.
-    source_tz = _get_station_timezone(station) if station != 0 else ZoneInfo("UTC")
+    source_tz = _get_station_timezone(dataset_id) if dataset_id != 0 else ZoneInfo("UTC")
     image_times = (
         datas['date_time'].dt
         .tz_localize(source_tz, ambiguous='raise', nonexistent='raise')
