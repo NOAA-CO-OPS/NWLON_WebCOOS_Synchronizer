@@ -68,7 +68,7 @@ import nwlon_webcoos_synchronizer as nws
 token = ''  # Insert your WebCOOS API token here #
 station = 8665530
 camera = 'North Inlet-Winyah Bay  National Estuarine Research Reserve Dock, Georgetown, SC'
-synchro = nws.synch(station=station,                     # The NWLON station ID
+synchro = nws.synch(dataset_id=station,                     # The NWLON station ID
                     camera=camera,                       # The WebCOOS camera name #
                     data_product='water_level',          # The CO-OPS data product to make a timeseries of #
                     camera_product='one-minute-stills',  # The WebCOOS image product to use for the movie #
