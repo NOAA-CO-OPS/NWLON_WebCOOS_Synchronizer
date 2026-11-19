@@ -1,5 +1,6 @@
 import datetime
 import glob
+from functools import lru_cache
 from matplotlib.dates import DateFormatter
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,6 +10,7 @@ import pickle
 import pywebcoos  # Package available on the WebCOOS GitHub
 import random
 import re
+import requests
 from sklearn.neural_network import MLPClassifier
 import warnings
 import click
@@ -17,6 +19,8 @@ from timezonefinder import TimezoneFinder
 from zoneinfo import ZoneInfo
 
 import moviepy
+
+from nwlon_webcoos_synchronizer.camera_feed import CameraFeed
 if moviepy.__version__ == '1.0.3':
     from moviepy.video.compositing.concatenate import concatenate_videoclips
     from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
@@ -88,6 +92,10 @@ def get_inventory(camera, product, token):
     '''      
     api = pywebcoos.API(token)
     return api.get_inventory(camera, product)
+
+def add_one_minute(timestamp: str) -> str:
+    dt = datetime.datetime.strptime(timestamp, "%Y%m%d%H%M")
+    return (dt + datetime.timedelta(minutes=1)).strftime("%Y%m%d%H%M")
 
 
 def synch(dataset_id, 
@@ -167,23 +175,39 @@ def synch(dataset_id,
         # gete data from erddap
         datas = _synch_init_erddap(dataset_id, erddap_link, data_product, value, time_start, time_end, interval, cutoff)
 
-    # Download image for each data point #
-    datas['image'] = ''
+    # CO-OPS is requested in station-local time; ERDDAP timestamps are UTC.
+    source_tz = _get_station_timezone(dataset_id) if dataset_id != 0 else ZoneInfo("UTC")
+    image_times = (
+        datas['date_time'].dt
+        .tz_localize(source_tz, ambiguous='raise', nonexistent='raise')
+        .dt.tz_convert('UTC')
+    )
+
+    # Download image for each data point
+    filelist = CameraFeed(
+        token=token,
+        camera=camera,
+        product=camera_product,
+        feed='raw-video-data'
+    ).download_concurrent(
+        start=time_start,
+        stop=add_one_minute(time_end),  # end time needs to include timestamps within that minute
+        interval=interval,
+        max_workers=4,
+        save_dir=save_dir
+    )
+    datas['image'] = ''  # pre-populate path
     for i in range(len(datas)):
-        time_start = _dt2datestr(datas['date_time'].iloc[i])
-        time_end = _dt2datestr(datas['date_time'].iloc[i]+datetime.timedelta(minutes=1))
-        filename = _call_WebcoosApi(camera=camera,
-                                    product=camera_product,
-                                    time_start=time_start,
-                                    time_end=time_end,
-                                    token=token,
-                                    save_dir=save_dir)
-        if filename:
-            datas.loc[i,'image'] = filename[0]
-        else:
-            datas.loc[i,'image'] = ''
-            
-    # If a view separator model has been provided, go through each image and label the view #
+        search = image_times.iloc[i].strftime("%Y-%m-%d-%H%M")
+        # filelist order is non-deterministic, need to sort to get the earlier image
+        matches = sorted([s for s in filelist if search in s])
+        count = len(matches)
+        if count == 1:
+            datas.iat[i, datas.columns.get_loc('image')] = matches[0]
+        # multiple images in same minute, remains an unhandled edge case
+
+
+    # If a view separator model has been provided, go through each image and label the view
     if sep_model is not None:
         vs = ViewSeparator(camera, token, n_views=7)
         f = open(sep_model, 'rb')
@@ -268,9 +292,9 @@ def synch_local(dataset_id, camera, data_product, local_dir, value, time_start, 
         time_end = _dt2datestr(datas['date_time'].iloc[i]+datetime.timedelta(minutes=1))
         filename = _get_local_image(local_dir, time_start)
         if filename:
-            datas.loc[i, 'image'] = filename[0]
+            datas.iat[i, datas.columns.get_loc('image')] = filename[0]
         else:
-            datas.loc[i, 'image'] = ''
+            datas.iat[i, datas.columns.get_loc('image')] = ''
     
     return datas
     
@@ -427,6 +451,26 @@ def _synch_init_erddap(dataset_id, erddap_link, data_product, value, time_start,
 
     return datas 
 
+    
+@lru_cache(maxsize=256)
+def _get_station_timezone(station):
+    """Resolve a CO-OPS station's IANA zone from its metadata coordinates."""
+    response = requests.get(
+        f"https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/{station}.json",
+        timeout=30,
+    )
+    response.raise_for_status()
+    stations = response.json().get('stations', [])
+    if not stations:
+        raise ValueError(f"No metadata found for CO-OPS station {station}")
+    metadata = stations[0]
+    name = TimezoneFinder().timezone_at(
+        lat=float(metadata['lat']), lng=float(metadata['lng'])
+    )
+    if name is None:
+        raise ValueError(f"Cannot determine time zone for CO-OPS station {station}")
+    return ZoneInfo(name)
+
 def _time_zone_with_lat_lon(latitude, longitude):
     # Initialize the finder 
     tf = TimezoneFinder()
@@ -436,7 +480,7 @@ def _time_zone_with_lat_lon(latitude, longitude):
 
     return tz_name
 
-    
+
 def _call_CoopsApi(station, data_product, time_start, time_end):
     '''
     Call the CO-OPS API to download requested data.
@@ -567,15 +611,14 @@ def _save_frames(datas, camera, dataset_id, view_num):
         NWLON = False
         
     datas = datas[datas['image'] != ''].reset_index(drop=True)  # Drop missing image rows 
-    datas['frame'] = ''
-    
     if datas['value'].max() - datas['value'].min() > 0.05:  # If the data has > 5 cm range, assume value = 'all' and the user wants a timeseries #
         ts = True
     else:  # If data has <=5 cm range, then assume user wants images at a certain value, and we want to show that value #
         ts = False 
         
     lens = np.array([len(datas['image'].iloc[i]) for i in range(len(datas))])
-    datas = datas[lens > 0]                     
+    datas = datas[lens > 0].copy().reset_index(drop=True)
+    datas['frame'] = ''
                      
     if view_num is not None:
         ii = np.where(datas['view'] == view_num)[0]
@@ -753,15 +796,22 @@ class ViewSeparator():
         
     def get_random_images(self, time_start, time_stop, n, direc):
         times = self._get_random_images_times(time_start, time_stop, n)
+        api = CameraFeed(
+            token=self.token,
+            camera=self.camera,
+            product='one-minute-stills',
+            feed='raw-video-data'
+        )
         for i in range(len(times)):
             time_start = _dt2datestr(times[i])
             time_end = _dt2datestr(times[i]+datetime.timedelta(minutes=1))
-            _call_WebcoosApi(camera=self.camera,
-                             product='one-minute-stills',
-                             time_start=time_start,
-                             time_end=time_end,
-                             token=self.token,
-                             save_dir=direc)
+            _ = api.download_concurrent(
+                camera=self.camera,
+                product='one-minute-stills',
+                time_start=time_start,
+                time_end=time_end,
+                save_dir=direc
+            )
     
     def label(self, direc):
         ims = os.listdir(direc) 
