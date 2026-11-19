@@ -479,6 +479,8 @@ def _save_frames(datas, camera, station, view_num):
     '''
     Save each frame of a movie.
     '''
+
+    datas = datas[datas['image'] != ''].reset_index(drop=True)  # Drop missing image rows 
     datas['frame'] = ''
     
     if datas['value'].max() - datas['value'].min() > 0.05:  # If the data has > 5 cm range, assume value = 'all' and the user wants a timeseries #
