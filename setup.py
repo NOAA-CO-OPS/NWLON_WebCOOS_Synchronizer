@@ -13,6 +13,8 @@ setup(
         'requests',
         'scikit-learn',
         'pytz',
+        'timezonefinder',
+        'tzdata',
         'pywebcoos @ git+https://github.com/WebCOOS/py-webcoos-client.git',
     ],
 )
