@@ -559,6 +559,13 @@ def _save_frames(datas, camera, dataset_id, view_num):
     Save each frame of a movie.
     '''
 
+    try:
+        dataset_id = int(dataset_id)
+        NWLON = True
+        
+    except ValueError:
+        NWLON = False
+        
     datas = datas[datas['image'] != ''].reset_index(drop=True)  # Drop missing image rows 
     datas['frame'] = ''
     
@@ -603,7 +610,7 @@ def _save_frames(datas, camera, dataset_id, view_num):
         if ax_data.get_ylim()[0] < mhhw < ax_data.get_ylim()[1]:  # Plot the mhhw level if the data covers it #
             ax_data.plot(ax_data.get_xlim(), [mhhw, mhhw], 'k--')
             ax_data.text(ax_data.get_xlim()[0], mhhw, 'MHHW', color='k', fontsize=12)
-        if dataset_id != 0:
+        if NWLON:
             minor = _get_flood_thresh(dataset_id)['nws_minor']
         else:
             minor = None
@@ -611,7 +618,7 @@ def _save_frames(datas, camera, dataset_id, view_num):
             if ax_data.get_ylim()[0] < minor < ax_data.get_ylim()[1]:  # Plot the minor flood level if the data covers it #
                 ax_data.plot(ax_data.get_xlim(), [minor, minor], 'y--')
                 ax_data.text(ax_data.get_xlim()[0], minor, 'Minor flooding', color='y', fontsize=12)
-        if dataset_id != 0:
+        if NWLON:
             moderate = _get_flood_thresh(dataset_id)['nws_moderate']
         else:
             moderate = None
@@ -619,7 +626,7 @@ def _save_frames(datas, camera, dataset_id, view_num):
             if ax_data.get_ylim()[0] < moderate < ax_data.get_ylim()[1]:  # Plot the moderate flood level if the data covers it #
                 ax_data.plot(ax_data.get_xlim(), [moderate, moderate], 'r--')
                 ax_data.text(ax_data.get_xlim()[0], moderate, 'Moderate flooding', color='r', fontsize=12)        
-        if dataset_id != 0:
+        if NWLON:
             major = _get_flood_thresh(dataset_id)['nws_major']
         else:
             major = None
