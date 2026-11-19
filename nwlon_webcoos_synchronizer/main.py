@@ -640,7 +640,7 @@ def _save_frames(datas, camera, dataset_id, view_num):
         ax_img.imshow(im)
 
         # Save the frame #
-        savename = datas['image'].iloc[i] + '_frame.png'            
+        savename = datas['image'].iloc[i] + '_frame_'+str(i)+'.png'            
         plt.savefig(savename, dpi=450)
         datas.loc[i,'frame'] = savename
         plt.close()
